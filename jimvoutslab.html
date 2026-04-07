@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JimvoutsLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&family=Share+Tech+Mono&family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script type="module">
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAfQEo5fPjr6yxNayyX9wMOe9dB-8TmnIo",
+  authDomain: "jimvoutslab-52671.firebaseapp.com",
+  projectId: "jimvoutslab-52671",
+  storageBucket: "jimvoutslab-52671.firebasestorage.app",
+  messagingSenderId: "379377501874",
+  appId: "1:379377501874:web:84a6dea889560ad013ebab"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Expose db and Firestore functions globally
+window._db = db;
+window._firestoreOps = { doc, getDoc, setDoc, collection, getDocs, deleteDoc, addDoc, query, orderBy };
+window._firebaseReady = true;
+window.dispatchEvent(new Event('firebaseReady'));
+</script>
+<style>
+  :root {
+    --bg: #080008;
+    --bg2: #0d000f;
+    --bg3: #130015;
+    --surface: #110013;
+    --surface2: #1a001e;
+    --border: #3a1a42;
+    --accent: #cc44ff;
+    --accent2: #aa22ee;
+    --accent3: #8800cc;
+    --ps: #003791;
+    --text: #f0e6f6;
+    --muted: #7a5a85;
+    --danger: #ff3b5c;
+    --success: #00e676;
+    --gold: #ffd700;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== SCANLINES OVERLAY ===== */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(160,0,255,0.02) 2px, rgba(0,212,255,0.015) 4px);
+    pointer-events:none;
+    z-index:9999;
+  }
+
+  /* ===== LOGIN ===== */
+  @keyframes flicker {
+    0%,19%,21%,23%,25%,54%,56%,100% { opacity:1; }
+    20%,24%,55% { opacity:0.6; }
+  }
+  @keyframes gridMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 60px 60px; }
+  }
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+  @keyframes glitch {
+    0%,100% { clip-path: inset(0 0 98% 0); transform: translate(-4px,0); }
+    20% { clip-path: inset(30% 0 50% 0); transform: translate(4px,0); }
+    40% { clip-path: inset(60% 0 20% 0); transform: translate(-2px,0); }
+    60% { clip-path: inset(10% 0 80% 0); transform: translate(3px,0); }
+    80% { clip-path: inset(80% 0 5% 0); transform: translate(-3px,0); }
+  }
+  @keyframes pulse-border {
+    0%,100% { box-shadow: 0 0 8px rgba(204,68,255,0.4), inset 0 0 8px rgba(204,68,255,0.05); }
+    50% { box-shadow: 0 0 24px rgba(204,68,255,0.8), inset 0 0 16px rgba(204,68,255,0.1); }
+  }
+  @keyframes fadeInUp {
+    from { opacity:0; transform:translateY(30px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  #loginScreen {
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background: #040008;
+    z-index:1000;
+    flex-direction:column;
+    gap:2rem;
+    overflow:hidden;
+  }
+
+  /* Animated grid background */
+  #loginScreen::before {
+    content:'';
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(136,0,204,0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(136,0,204,0.15) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridMove 8s linear infinite;
+    z-index:0;
+  }
+
+  /* Moving scanline */
+  #loginScreen::after {
+    content:'';
+    position:absolute;
+    left:0; right:0;
+    height:120px;
+    background: linear-gradient(transparent, rgba(204,68,255,0.04), transparent);
+    animation: scanline 6s linear infinite;
+    z-index:1;
+    pointer-events:none;
+  }
+
+  /* Corner decorations */
+  .login-corner {
+    position:absolute;
+    width:60px; height:60px;
+    z-index:2;
+  }
+  .login-corner::before, .login-corner::after {
+    content:'';
+    position:absolute;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .login-corner::before { width:2px; height:100%; top:0; }
+  .login-corner::after { width:100%; height:2px; top:0; }
+  .login-corner.tl { top:20px; left:20px; }
+  .login-corner.tr { top:20px; right:20px; transform:scaleX(-1); }
+  .login-corner.bl { bottom:20px; left:20px; transform:scaleY(-1); }
+  .login-corner.br { bottom:20px; right:20px; transform:scale(-1); }
+
+  .login-content {
+    position:relative; z-index:3;
+    display:flex; flex-direction:column; align-items:center;
+    gap:0.5rem;
+    animation: fadeInUp 0.8s ease both;
+  }
+
+  .login-eyebrow {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.65rem;
+    color: var(--accent);
+    letter-spacing:0.6em;
+    text-transform:uppercase;
+    opacity:0.7;
+    margin-bottom:0.5rem;
+  }
+
+  .login-logo {
+    font-family:'Orbitron', sans-serif;
+    font-size:3.5rem;
+    font-weight:900;
+    letter-spacing:0.15em;
+    color: #fff;
+    text-shadow:
+      0 0 10px rgba(204,68,255,0.9),
+      0 0 30px rgba(204,68,255,0.6),
+      0 0 60px rgba(204,68,255,0.3),
+      0 0 100px rgba(136,0,204,0.2);
+    animation: flicker 8s infinite;
+    position:relative;
+    line-height:1;
+  }
+
+  /* Glitch layer */
+  .login-logo::after {
+    content: 'JimvoutsLab';
+    position:absolute; inset:0;
+    color: #ff00ff;
+    text-shadow: 2px 0 #ff00ff;
+    animation: glitch 5s infinite step-start;
+    opacity:0.4;
+    mix-blend-mode: screen;
+  }
+
+  .login-sub {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.7rem;
+    color: var(--muted);
+    letter-spacing:0.4em;
+    text-transform:uppercase;
+    margin-top:0.3rem;
+  }
+
+  .login-divider {
+    display:flex; align-items:center; gap:1rem;
+    margin: 0.5rem 0;
+    width: min(400px, 90vw);
+  }
+  .login-divider::before, .login-divider::after {
+    content:'';
+    flex:1; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent3));
+  }
+  .login-divider::after { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .login-divider span {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.6rem;
+    color: var(--accent3);
+    letter-spacing:0.2em;
+  }
+
+  .login-box {
+    background: rgba(17,0,19,0.9);
+    border: 1px solid rgba(136,0,204,0.5);
+    border-radius:4px;
+    padding:2.5rem;
+    width:min(400px, 90vw);
+    display:flex;
+    flex-direction:column;
+    gap:1.2rem;
+    position:relative;
+    overflow:visible;
+    z-index:3;
+    animation: pulse-border 3s ease-in-out infinite, fadeInUp 0.8s 0.2s ease both;
+    animation-fill-mode: both;
+    backdrop-filter: blur(10px);
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  }
+
+  /* Top accent line */
+  .login-box::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:20px;
+    height:2px;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  /* System status line */
+  .login-status {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.62rem;
+    color: rgba(204,68,255,0.5);
+    letter-spacing:0.1em;
+    margin-bottom:-0.5rem;
+  }
+
+  .login-box label {
+    font-family:'Exo 2', sans-serif;
+    font-size:0.72rem;
+    color: var(--accent);
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    display:block;
+    margin-bottom:0.4rem;
+    font-weight:600;
+  }
+  .login-box input {
+    width:100%;
+    background: rgba(8,0,8,0.8);
+    border: 1px solid rgba(136,0,204,0.4);
+    border-radius:2px;
+    padding:0.75rem 1rem;
+    color: var(--accent);
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.9rem;
+    outline:none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing:0.05em;
+  }
+  .login-box input::placeholder { color: rgba(122,90,133,0.4); }
+  .login-box input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(204,68,255,0.3), inset 0 0 8px rgba(204,68,255,0.05);
+  }
+  .btn-login {
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius:2px;
+    padding:0.9rem;
+    color: var(--accent);
+    font-family:'Orbitron', sans-serif;
+    font-size:0.85rem;
+    font-weight:700;
+    letter-spacing:0.3em;
+    cursor:pointer;
+    transition: all 0.2s;
+    margin-top:0.5rem;
+    position:relative;
+    overflow:hidden;
+    text-transform:uppercase;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+  .btn-login::before {
+    content:'';
+    position:absolute; inset:0;
+    background: linear-gradient(135deg, var(--accent3), var(--accent));
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+  .btn-login:hover { color:white; box-shadow: 0 0 20px rgba(204,68,255,0.5); }
+  .btn-login:hover::before { opacity:1; }
+  .btn-login span { position:relative; z-index:1; }
+  .login-err {
+    color:var(--danger);
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.75rem;
+    text-align:center;
+    display:none;
+    letter-spacing:0.1em;
+  }
+
+  /* ===== MAIN APP ===== */
+  #app { display:none; min-height:100vh; }
+
+  /* ===== NAVBAR ===== */
+  .navbar {
+    position:sticky; top:0; z-index:100;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter:blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding:0 2rem;
+    display:flex;
+    align-items:center;
+    gap:2rem;
+    height:64px;
+  }
+  .nav-logo {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.8rem;
+    letter-spacing:0.15em;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    flex-shrink:0;
+  }
+  .nav-stats {
+    display:flex; gap:1.5rem; flex:1;
+  }
+  .stat-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius:20px;
+    padding:0.3rem 1rem;
+    font-size:0.8rem;
+    color:var(--muted);
+    display:flex; align-items:center; gap:0.4rem;
+  }
+  .stat-pill span { color:var(--accent); font-weight:700; font-size:0.9rem; }
+  .nav-user {
+    font-size:0.8rem; color:var(--muted);
+    display:flex; align-items:center; gap:0.8rem;
+  }
+  .btn-logout {
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:0.3rem 0.8rem;
+    color:var(--muted);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.8rem;
+    cursor:pointer;
+    transition:all 0.2s;
+  }
+  .btn-logout:hover { border-color:var(--danger); color:var(--danger); }
+
+  /* ===== ADD PANEL ===== */
+  .add-panel {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding:1.5rem 2rem;
+    position:relative;
+    overflow:visible;
+  }
+  .add-panel::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .add-tabs {
+    display:flex; gap:0.5rem; margin-bottom:1.2rem;
+  }
+  .add-tab {
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:0.5rem 1.2rem;
+    color:var(--muted);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.9rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:all 0.2s;
+    letter-spacing:0.05em;
+  }
+  .add-tab.active { background:var(--accent3); border-color:var(--accent3); color:white; }
+  .add-tab:hover:not(.active) { border-color:var(--muted); color:var(--text); }
+
+  .add-form { display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; overflow:visible; position:relative; }
+  .form-group { display:flex; flex-direction:column; gap:0.4rem; }
+  .form-group label {
+    font-size:0.72rem;
+    color:var(--muted);
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+  }
+  .form-group input, .form-group select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius:6px;
+    padding:0.6rem 0.9rem;
+    color:var(--text);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.95rem;
+    outline:none;
+    transition:border-color 0.2s;
+    min-width:160px;
+  }
+  .form-group input:focus, .form-group select:focus { border-color:var(--accent); }
+  .form-group select option { background: var(--bg2); }
+
+  /* Search results dropdown */
+  .search-wrap { position:relative; z-index:500; }
+  .search-results {
+    position:absolute;
+    top:calc(100% + 4px); left:0;
+    background:#1a001e;
+    border:2px solid #8800cc;
+    border-radius:8px;
+    width:320px;
+    max-height:280px;
+    overflow-y:auto;
+    z-index:1000;
+    display:none;
+    box-shadow: 0 8px 40px rgba(136,0,204,0.4), 0 0 0 1px rgba(204,68,255,0.2);
+  }
+  .search-results.show { display:block; }
+  .search-item {
+    display:flex; align-items:center; gap:0.8rem;
+    padding:0.7rem 1rem;
+    cursor:pointer;
+    transition:background 0.15s;
+    border-bottom:1px solid var(--border);
+  }
+  .search-item:last-child { border-bottom:none; }
+  .search-item:hover { background:var(--bg3); }
+  .search-item img { width:40px; height:56px; object-fit:cover; border-radius:4px; flex-shrink:0; background:var(--bg3); }
+  .search-item-info { flex:1; overflow:hidden; }
+  .search-item-title { font-size:0.9rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .search-item-year { font-size:0.75rem; color:var(--muted); }
+
+  .btn-add {
+    background: linear-gradient(135deg, var(--accent2), #ff4500);
+    border:none; border-radius:8px;
+    padding:0.65rem 1.5rem;
+    color:white;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.1rem;
+    letter-spacing:0.15em;
+    cursor:pointer;
+    transition:opacity 0.2s, transform 0.1s;
+    white-space:nowrap;
+  }
+  .btn-add:hover { opacity:0.88; transform:translateY(-1px); }
+
+  .btn-scan {
+    background: var(--bg3);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:0.65rem 1rem;
+    color:var(--accent);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.85rem;
+    font-weight:600;
+    cursor:pointer;
+    display:flex; align-items:center; gap:0.5rem;
+    transition:all 0.2s;
+  }
+  .btn-scan:hover { border-color:var(--accent); background:rgba(0,212,255,0.08); }
+
+  /* ===== BANNER ===== */
+  .banner {
+    position:fixed; top:80px; left:50%; transform:translateX(-50%);
+    background:#1a001e;
+    border:1px solid var(--danger);
+    border-radius:10px;
+    padding:1rem 1.5rem;
+    z-index:500;
+    display:none;
+    flex-direction:column;
+    gap:0.4rem;
+    max-width:400px;
+    box-shadow:0 0 30px rgba(255,59,92,0.3);
+    animation: bannerIn 0.3s ease;
+  }
+  @keyframes bannerIn {
+    from { opacity:0; transform:translateX(-50%) translateY(-10px); }
+    to { opacity:1; transform:translateX(-50%) translateY(0); }
+  }
+  .banner.show { display:flex; }
+  .banner-title { font-family:'Bebas Neue',sans-serif; color:var(--danger); font-size:1.1rem; letter-spacing:0.1em; }
+  .banner-msg { font-size:0.9rem; color:var(--text); }
+
+  /* ===== CAMERA MODAL ===== */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.85);
+    z-index:600; display:none; align-items:center; justify-content:center;
+  }
+  .modal-overlay.show { display:flex; }
+  .modal {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:1.5rem;
+    width:min(420px, 90vw);
+    display:flex; flex-direction:column; gap:1rem;
+  }
+  .modal-title {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.4rem;
+    letter-spacing:0.1em;
+    color:var(--accent);
+  }
+  #cameraFeed {
+    width:100%; border-radius:8px;
+    background:var(--bg3);
+    aspect-ratio:16/9;
+    object-fit:cover;
+  }
+  .barcode-input-wrap { display:flex; gap:0.5rem; }
+  .barcode-input-wrap input {
+    flex:1;
+    background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+    padding:0.6rem 0.9rem; color:var(--text);
+    font-family:'Share Tech Mono',monospace; font-size:0.95rem; outline:none;
+  }
+  .barcode-input-wrap input:focus { border-color:var(--accent); }
+  .btn-modal-search {
+    background:var(--accent3); border:none; border-radius:6px;
+    padding:0.6rem 1.2rem; color:white;
+    font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem;
+    cursor:pointer;
+  }
+  .btn-close {
+    background:transparent; border:1px solid var(--border); border-radius:6px;
+    padding:0.5rem 1rem; color:var(--muted); cursor:pointer;
+    font-family:'Rajdhani',sans-serif; font-size:0.9rem;
+    align-self:flex-end;
+    transition:all 0.2s;
+  }
+  .btn-close:hover { border-color:var(--danger); color:var(--danger); }
+
+  /* ===== MAIN CONTENT ===== */
+  .main { padding:2rem; }
+
+  .section-header {
+    display:flex; align-items:center; gap:1rem;
+    margin-bottom:1.5rem;
+  }
+  .section-title {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:2rem;
+    letter-spacing:0.1em;
+    color:var(--text);
+  }
+  .section-count {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:0.2rem 0.8rem;
+    font-size:0.8rem;
+    color:var(--accent);
+    font-weight:700;
+  }
+
+  /* ===== FILTER BAR ===== */
+  .filter-bar {
+    display:flex; gap:0.5rem; flex-wrap:wrap;
+    margin-bottom:1.5rem;
+  }
+  .filter-btn {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:0.3rem 1rem;
+    color:var(--muted);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.85rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:all 0.2s;
+    letter-spacing:0.05em;
+  }
+  .filter-btn.active { background:var(--accent3); border-color:var(--accent3); color:white; }
+  .filter-btn:hover:not(.active) { border-color:var(--muted); color:var(--text); }
+
+  /* ===== GRID ===== */
+  .games-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap:1.2rem;
+  }
+  @media(min-width:768px){
+    .games-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  }
+
+  .game-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:visible;
+    transition:transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    cursor:default;
+    position:relative;
+    animation: cardIn 0.4s ease both;
+  }
+  @keyframes cardIn {
+    from { opacity:0; transform:scale(0.92) translateY(10px); }
+    to { opacity:1; transform:scale(1) translateY(0); }
+  }
+  .game-card:hover {
+    transform:translateY(-4px) scale(1.02);
+    border-color:var(--accent);
+    box-shadow:0 8px 32px rgba(0,212,255,0.15);
+  }
+  .card-cover {
+    width:100%; aspect-ratio:3/4;
+    object-fit:cover;
+    display:block;
+    background: var(--bg3);
+  }
+  .card-cover-placeholder {
+    width:100%; aspect-ratio:3/4;
+    display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, var(--bg3), var(--surface2));
+    color:var(--muted);
+    font-size:2.5rem;
+    flex-direction:column;
+    gap:0.5rem;
+  }
+  .card-cover-placeholder span {
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.7rem;
+    color:var(--muted);
+    text-align:center;
+    padding:0 0.5rem;
+  }
+  .card-info {
+    padding:0.7rem;
+    display:flex; flex-direction:column; gap:0.3rem;
+  }
+  .card-title {
+    font-size:0.88rem;
+    font-weight:700;
+    line-height:1.2;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:visible;
+  }
+  .card-meta {
+    display:flex; flex-wrap:wrap; gap:0.3rem;
+    margin-top:0.2rem;
+  }
+  .badge {
+    border-radius:4px;
+    padding:0.15rem 0.5rem;
+    font-size:0.68rem;
+    font-weight:700;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+  }
+  .badge-console { background:var(--ps); color:white; }
+  .badge-ps1 { background:#1a1a4e; }
+  .badge-ps2 { background:#003791; }
+  .badge-ps3 { background:#00439c; }
+  .badge-ps4 { background:#0070cc; }
+  .badge-ps5 { background:#0078ff; }
+  .badge-retail { background:rgba(0,230,118,0.15); color:var(--success); border:1px solid rgba(0,230,118,0.3); }
+  .badge-digital { background:rgba(124,58,237,0.15); color:#a78bfa; border:1px solid rgba(124,58,237,0.3); }
+  .badge-both { background:rgba(255,107,53,0.15); color:var(--accent2); border:1px solid rgba(255,107,53,0.3); }
+  .badge-wishlist { background:rgba(255,215,0,0.15); color:var(--gold); border:1px solid rgba(255,215,0,0.3); }
+
+  .card-price {
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.78rem;
+    color:var(--gold);
+    margin-top:0.2rem;
+  }
+  .btn-delete {
+    position:absolute; top:6px; right:6px;
+    background:rgba(10,10,15,0.8);
+    border:1px solid var(--border);
+    border-radius:50%;
+    width:26px; height:26px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    opacity:0;
+    transition:opacity 0.2s, border-color 0.2s;
+    color:var(--muted);
+    font-size:0.75rem;
+    backdrop-filter:blur(4px);
+  }
+  .game-card:hover .btn-delete { opacity:1; }
+  .btn-delete:hover { border-color:var(--danger); color:var(--danger); }
+
+  /* Wishlist section separator */
+  .section-divider {
+    margin:3rem 0 2rem;
+    border:none;
+    border-top:1px solid var(--border);
+    position:relative;
+  }
+
+  .loading-spin {
+    display:inline-block;
+    width:14px; height:14px;
+    border:2px solid var(--border);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin 0.6s linear infinite;
+    vertical-align:middle;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .empty-state {
+    grid-column:1/-1;
+    display:flex; flex-direction:column; align-items:center; gap:1rem;
+    padding:3rem;
+    color:var(--muted);
+  }
+  .empty-state .icon { font-size:3rem; }
+  .empty-state p { font-size:0.95rem; text-align:center; }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:2rem; right:2rem;
+    background:#1a001e;
+    border:1px solid var(--success);
+    border-radius:8px;
+    padding:0.8rem 1.2rem;
+    font-size:0.9rem;
+    z-index:800;
+    opacity:0;
+    transform:translateY(10px);
+    transition:all 0.3s;
+    pointer-events:none;
+  }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.error { border-color:var(--danger); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <!-- Corner decorations -->
+  <div class="login-corner tl"></div>
+  <div class="login-corner tr"></div>
+  <div class="login-corner bl"></div>
+  <div class="login-corner br"></div>
+
+  <div class="login-content">
+    <div class="login-eyebrow">// SYSTEM ACCESS REQUIRED //</div>
+    <div class="login-logo">JimvoutsLab</div>
+    <div class="login-sub">Personal Game Collection Matrix</div>
+  </div>
+
+  <div class="login-divider"><span>AUTHENTICATE</span></div>
+
+  <div class="login-box">
+    <div class="login-status">&gt; SYS.CONNECT :: AWAITING CREDENTIALS_</div>
+    <div>
+      <label>// User ID</label>
+      <input type="email" id="loginEmail" placeholder="user@network.net" autocomplete="email">
+    </div>
+    <div>
+      <label>// Access Key</label>
+      <input type="password" id="loginPassword" placeholder="••••••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()"><span>[ JACK IN ]</span></button>
+    <div class="login-err" id="loginErr">// ERR: INVALID CREDENTIALS — ACCESS DENIED</div>
+  </div>
+</div>
+
+<!-- DUPLICATE BANNER -->
+<div class="banner" id="dupBanner">
+  <div class="banner-title">⚠️ Παιχνίδι ήδη υπάρχει!</div>
+  <div class="banner-msg" id="dupMsg"></div>
+</div>
+
+<!-- CAMERA MODAL -->
+<div class="modal-overlay" id="cameraModal">
+  <div class="modal">
+    <div class="modal-title">📷 BARCODE SCANNER</div>
+    <video id="cameraFeed" autoplay playsinline muted></video>
+    <div style="font-size:0.8rem;color:var(--muted);">Ή πληκτρολόγησε το barcode χειροκίνητα:</div>
+    <div class="barcode-input-wrap">
+      <input type="text" id="manualBarcode" placeholder="EAN barcode (π.χ. 711719516323)" maxlength="20">
+      <button class="btn-modal-search" onclick="searchByBarcode()">ΑΝΑΖΗΤΗΣΗ</button>
+    </div>
+    <button class="btn-close" onclick="closeCamera()">ΚΛΕΙΣΙΜΟ</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-logo">JimvoutsLab</div>
+    <div class="nav-stats">
+      <div class="stat-pill">🎮 Library: <span id="statLib">0</span></div>
+      <div class="stat-pill">⭐ Wishlist: <span id="statWish">0</span></div>
+      <div class="stat-pill" id="statValueWrap">💰 Αξία: <span id="statValue">€0</span></div>
+    </div>
+    <div class="nav-user">
+      <span id="navEmail"></span>
+      <button class="btn-logout" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </nav>
+
+  <!-- ADD PANEL -->
+  <div class="add-panel">
+    <div class="add-tabs">
+      <button class="add-tab active" id="tabLib" onclick="switchAddTab('library')">➕ ΠΡΟΣΘΗΚΗ ΣΤΗΝ LIBRARY</button>
+      <button class="add-tab" id="tabWish" onclick="switchAddTab('wishlist')">⭐ ΠΡΟΣΘΗΚΗ ΣΤΟ WISHLIST</button>
+    </div>
+
+    <!-- Library Form -->
+    <div class="add-form" id="formLibrary">
+      <div class="form-group search-wrap">
+        <label>Τίτλος παιχνιδιού</label>
+        <input type="text" id="searchInput" placeholder="Αναζήτηση τίτλου..." oninput="onSearchInput()" autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div class="form-group">
+        <label>Κονσόλα</label>
+        <select id="consoleSelect">
+          <option value="PS1">PS1</option>
+          <option value="PS2">PS2</option>
+          <option value="PS3">PS3</option>
+          <option value="PS4" selected>PS4</option>
+          <option value="PS5">PS5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Έκδοση</label>
+        <select id="formatSelect">
+          <option value="Retail">Retail</option>
+          <option value="Digital">Digital</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Τιμή αγοράς (€) - προαιρετικό</label>
+        <input type="number" id="priceInput" placeholder="π.χ. 29.99" step="0.01" min="0" style="max-width:140px;">
+      </div>
+      <button class="btn-scan" onclick="openCamera()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="3" height="10"/><rect x="7" y="5" width="2" height="14"/><rect x="11" y="7" width="2" height="10"/><rect x="15" y="4" width="3" height="16"/><rect x="20" y="7" width="2" height="10"/></svg>
+        BARCODE
+      </button>
+      <button class="btn-add" onclick="addGame('library')">ADD TO LIBRARY</button>
+    </div>
+
+    <!-- Wishlist Form -->
+    <div class="add-form" id="formWishlist" style="display:none;">
+      <div class="form-group search-wrap">
+        <label>Τίτλος παιχνιδιού</label>
+        <input type="text" id="searchInputWish" placeholder="Αναζήτηση τίτλου..." oninput="onSearchInputWish()" autocomplete="off">
+        <div class="search-results" id="searchResultsWish"></div>
+      </div>
+      <div class="form-group">
+        <label>Κονσόλα</label>
+        <select id="consoleSelectWish">
+          <option value="PS1">PS1</option>
+          <option value="PS2">PS2</option>
+          <option value="PS3">PS3</option>
+          <option value="PS4" selected>PS4</option>
+          <option value="PS5">PS5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Έκδοση</label>
+        <select id="formatSelectWish">
+          <option value="Retail">Retail</option>
+          <option value="Digital">Digital</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <button class="btn-add" style="background:linear-gradient(135deg,#b45309,var(--gold));" onclick="addGame('wishlist')">ADD TO WISHLIST</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- LIBRARY SECTION -->
+    <div class="section-header">
+      <div class="section-title">📚 MY LIBRARY</div>
+      <div class="section-count" id="libCount">0</div>
+    </div>
+
+    <!-- Filter Bar Library -->
+    <div class="filter-bar" id="filterBarLib">
+      <button class="filter-btn active" onclick="setFilter('library','ALL',this)">Όλες</button>
+      <button class="filter-btn" onclick="setFilter('library','PS1',this)">PS1</button>
+      <button class="filter-btn" onclick="setFilter('library','PS2',this)">PS2</button>
+      <button class="filter-btn" onclick="setFilter('library','PS3',this)">PS3</button>
+      <button class="filter-btn" onclick="setFilter('library','PS4',this)">PS4</button>
+      <button class="filter-btn" onclick="setFilter('library','PS5',this)">PS5</button>
+      <button class="filter-btn" onclick="setFilter('library','Retail',this)">Retail</button>
+      <button class="filter-btn" onclick="setFilter('library','Digital',this)">Digital</button>
+    </div>
+
+    <div class="games-grid" id="libraryGrid"></div>
+
+    <hr class="section-divider">
+
+    <!-- WISHLIST SECTION -->
+    <div class="section-header">
+      <div class="section-title">⭐ WISHLIST</div>
+      <div class="section-count" id="wishCount">0</div>
+    </div>
+
+    <!-- Filter Bar Wishlist -->
+    <div class="filter-bar" id="filterBarWish">
+      <button class="filter-btn active" onclick="setFilter('wishlist','ALL',this)">Όλες</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS1',this)">PS1</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS2',this)">PS2</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS3',this)">PS3</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS4',this)">PS4</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS5',this)">PS5</button>
+    </div>
+
+    <div class="games-grid" id="wishlistGrid"></div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const USERS = {
+  "vouts_jim@hotmail.com": "40294029"
+};
+
+const RAWG_KEY = "06542a2a4fce4b8bb90b97885d5d3cfd"; // ← βάλε το key σου από rawg.io/apidocs
+
+// ============================================================
+// STATE
+// ============================================================
+let currentUser = null;
+let library = [];
+let wishlist = [];
+let selectedGame = null; // { title, cover, rawgId }
+let selectedGameWish = null;
+let cameraStream = null;
+let searchTimer = null;
+let activeFilterLib = 'ALL';
+let activeFilterWish = 'ALL';
+let addMode = 'library';
+
+// ============================================================
+// FIREBASE HELPERS
+// ============================================================
+function getDB() { return window._db; }
+function fs() { return window._firestoreOps; }
+
+async function saveGame(entry, section) {
+  try {
+    const db = getDB(); const f = fs();
+    if (!db || !f) { console.error('Firebase not ready'); return; }
+    const ref = f.doc(db, 'users', 'jimvouts', section, String(entry.id));
+    await f.setDoc(ref, entry);
+  } catch(e) {
+    console.error('Firebase save error', e);
+    showToast('❌ Σφάλμα αποθήκευσης: ' + e.message, true);
+  }
+}
+
+async function deleteGameFromDB(id, section) {
+  try {
+    const db = getDB(); const f = fs();
+    if (!db || !f) return;
+    const ref = f.doc(db, 'users', 'jimvouts', section, String(id));
+    await f.deleteDoc(ref);
+  } catch(e) { console.error('Firebase delete error', e); }
+}
+
+async function loadData() {
+  try {
+    const db = getDB(); const f = fs();
+    if (!db || !f) throw new Error('Firebase not initialized');
+    // Load library
+    const libSnap = await f.getDocs(f.collection(db, 'users', 'jimvouts', 'library'));
+    library = [];
+    libSnap.forEach(d => library.push(d.data()));
+    library.sort((a,b) => (b.id||0) - (a.id||0));
+    // Load wishlist
+    const wishSnap = await f.getDocs(f.collection(db, 'users', 'jimvouts', 'wishlist'));
+    wishlist = [];
+    wishSnap.forEach(d => wishlist.push(d.data()));
+    wishlist.sort((a,b) => (b.id||0) - (a.id||0));
+    console.log('Loaded from Firebase:', library.length, 'library,', wishlist.length, 'wishlist');
+  } catch(e) {
+    console.error('Firebase load error', e);
+    showToast('❌ Σφάλμα φόρτωσης: ' + e.message, true);
+    library = []; wishlist = [];
+  }
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPassword').value;
+  const err = document.getElementById('loginErr');
+  if (USERS[email] && USERS[email] === pass) {
+    currentUser = email;
+    err.style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('navEmail').textContent = email;
+    // Show loading state
+    document.getElementById('libraryGrid').innerHTML = '<div class="empty-state"><div class="loading-spin" style="width:32px;height:32px;border-width:3px;"></div><p>Φόρτωση δεδομένων...</p></div>';
+    document.getElementById('wishlistGrid').innerHTML = '';
+    // Wait for Firebase to be ready (poll to avoid race condition with module loading)
+    let waited = 0;
+    while (!window._firebaseReady && waited < 100) {
+      await new Promise(r => setTimeout(r, 100));
+      waited++;
+    }
+    if (!window._firebaseReady) {
+      showToast('❌ Firebase δεν φορτώθηκε. Ανανέωσε τη σελίδα.', true);
+      return;
+    }
+    await loadData();
+    renderAll();
+  } else {
+    err.style.display = 'block';
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  library = []; wishlist = [];
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+// Enter key on login
+document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('loginEmail').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// ============================================================
+// TABS
+// ============================================================
+function switchAddTab(mode) {
+  addMode = mode;
+  document.getElementById('tabLib').classList.toggle('active', mode==='library');
+  document.getElementById('tabWish').classList.toggle('active', mode==='wishlist');
+  document.getElementById('formLibrary').style.display = mode==='library' ? 'flex' : 'none';
+  document.getElementById('formWishlist').style.display = mode==='wishlist' ? 'flex' : 'none';
+  selectedGame = null;
+  selectedGameWish = null;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchInputWish').value = '';
+  document.getElementById('searchResults').classList.remove('show');
+  document.getElementById('searchResultsWish').classList.remove('show');
+}
+
+// ============================================================
+// RAWG SEARCH
+// ============================================================
+async function rawgSearch(query) {
+  if (!RAWG_KEY || RAWG_KEY === 'YOUR_RAWG_API_KEY') {
+    // Fallback: return mock data if no API key
+    return mockSearch(query);
+  }
+  try {
+    const res = await fetch(`https://api.rawg.io/api/games?key=${RAWG_KEY}&search=${encodeURIComponent(query)}&page_size=8`);
+    const data = await res.json();
+    return (data.results || []).map(g => ({
+      title: g.name,
+      cover: g.background_image,
+      year: g.released ? g.released.substring(0,4) : '',
+      rawgId: g.id
+    }));
+  } catch(e) {
+    return mockSearch(query);
+  }
+}
+
+function mockSearch(query) {
+  // Minimal fallback when no API key
+  return [{ title: query, cover: null, year: '', rawgId: null }];
+}
+
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  const q = document.getElementById('searchInput').value.trim();
+  if (q.length < 2) { document.getElementById('searchResults').classList.remove('show'); return; }
+  searchTimer = setTimeout(() => doSearch(q, 'library'), 400);
+}
+
+function onSearchInputWish() {
+  clearTimeout(searchTimer);
+  const q = document.getElementById('searchInputWish').value.trim();
+  if (q.length < 2) { document.getElementById('searchResultsWish').classList.remove('show'); return; }
+  searchTimer = setTimeout(() => doSearch(q, 'wishlist'), 400);
+}
+
+async function doSearch(q, mode) {
+  const resEl = document.getElementById(mode==='library' ? 'searchResults' : 'searchResultsWish');
+  resEl.innerHTML = `<div class="search-item"><div class="loading-spin"></div> Αναζήτηση...</div>`;
+  resEl.classList.add('show');
+  const results = await rawgSearch(q);
+  if (!results.length) {
+    resEl.innerHTML = `<div class="search-item" style="color:var(--muted)">Δεν βρέθηκαν αποτελέσματα</div>`;
+    return;
+  }
+  resEl.innerHTML = results.map(g => `
+    <div class="search-item" onclick="selectGame(${JSON.stringify(g).replace(/"/g,'&quot;')}, '${mode}')">
+      ${g.cover ? `<img src="${g.cover}" alt="" loading="lazy">` : `<div style="width:40px;height:56px;background:var(--bg3);border-radius:4px;"></div>`}
+      <div class="search-item-info">
+        <div class="search-item-title">${g.title}</div>
+        ${g.year ? `<div class="search-item-year">${g.year}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectGame(g, mode) {
+  if (mode === 'library') {
+    selectedGame = g;
+    document.getElementById('searchInput').value = g.title;
+    document.getElementById('searchResults').classList.remove('show');
+  } else {
+    selectedGameWish = g;
+    document.getElementById('searchInputWish').value = g.title;
+    document.getElementById('searchResultsWish').classList.remove('show');
+  }
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) {
+    document.getElementById('searchResults').classList.remove('show');
+    document.getElementById('searchResultsWish').classList.remove('show');
+  }
+});
+
+// ============================================================
+// BARCODE
+// ============================================================
+async function openCamera() {
+  document.getElementById('cameraModal').classList.add('show');
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    document.getElementById('cameraFeed').srcObject = cameraStream;
+    startBarcodeDetection();
+  } catch(e) {
+    // Camera not available, just show manual input
+    document.getElementById('cameraFeed').style.display = 'none';
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  if (window.Quagga) Quagga.stop();
+  document.getElementById('cameraModal').classList.remove('show');
+  document.getElementById('cameraFeed').style.display = 'block';
+}
+
+function startBarcodeDetection() {
+  if (!window.Quagga) return;
+  const video = document.getElementById('cameraFeed');
+  Quagga.init({
+    inputStream: { type: 'LiveStream', target: video, constraints: { facingMode: 'environment' } },
+    decoder: { readers: ['ean_reader', 'ean_8_reader', 'upc_reader'] }
+  }, err => {
+    if (!err) Quagga.start();
+  });
+  Quagga.onDetected(data => {
+    const code = data.codeResult.code;
+    document.getElementById('manualBarcode').value = code;
+    Quagga.stop();
+    searchByBarcode();
+  });
+}
+
+async function searchByBarcode() {
+  const barcode = document.getElementById('manualBarcode').value.trim();
+  if (!barcode) return;
+  // Use Open Library / UPC lookup via RAWG search with barcode (fallback to title search)
+  // First try fetching from a public barcode API
+  showToast('🔍 Αναζήτηση barcode...', false);
+  let title = null;
+  try {
+    // Try barcodelookup-style via a public API proxy
+    const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`);
+    const data = await res.json();
+    if (data.items && data.items.length > 0) {
+      title = data.items[0].title;
+    }
+  } catch(e) {}
+
+  if (title) {
+    closeCamera();
+    document.getElementById('searchInput').value = title;
+    await doSearch(title, 'library');
+  } else {
+    showToast('❌ Δεν βρέθηκε το barcode. Δοκίμασε manual αναζήτηση.', true);
+  }
+}
+
+// ============================================================
+// ADD GAME
+// ============================================================
+async function addGame(mode) {
+  const isLib = mode === 'library';
+  const game = isLib ? selectedGame : selectedGameWish;
+  const titleInput = document.getElementById(isLib ? 'searchInput' : 'searchInputWish');
+  const consoleSel = document.getElementById(isLib ? 'consoleSelect' : 'consoleSelectWish');
+  const formatSel = document.getElementById(isLib ? 'formatSelect' : 'formatSelectWish');
+
+  const title = (game ? game.title : titleInput.value).trim();
+  if (!title) { showToast('⚠️ Βάλε τίτλο παιχνιδιού!', true); return; }
+
+  const console_ = consoleSel.value;
+  const format = isLib ? formatSel.value : null;
+  const price = isLib ? parseFloat(document.getElementById('priceInput').value) || null : null;
+  const cover = game ? game.cover : null;
+
+  // Duplicate check
+  const list = isLib ? library : wishlist;
+  const otherList = isLib ? wishlist : library;
+
+  const isDup = list.some(g => g.title.toLowerCase() === title.toLowerCase() && g.console === console_);
+  if (isDup) {
+    showDuplicate(title, console_, mode);
+    return;
+  }
+
+  const entry = {
+    id: Date.now(),
+    title,
+    cover,
+    console: console_,
+    format: isLib ? format : 'Wishlist',
+    price,
+    addedAt: new Date().toISOString()
+  };
+
+  if (isLib) library.unshift(entry);
+  else wishlist.unshift(entry);
+
+  await saveGame(entry, isLib ? 'library' : 'wishlist');
+  renderAll();
+  showToast(`✅ "${title}" προστέθηκε ${isLib ? 'στη Library' : 'στο Wishlist'}!`);
+
+  // Reset form
+  titleInput.value = '';
+  if (isLib) { selectedGame = null; document.getElementById('priceInput').value = ''; }
+  else { selectedGameWish = null; }
+}
+
+function showDuplicate(title, console_, mode) {
+  const ban = document.getElementById('dupBanner');
+  document.getElementById('dupMsg').textContent = `Το "${title}" (${console_}) υπάρχει ήδη ${mode==='library' ? 'στη Library' : 'στο Wishlist'} σου!`;
+  ban.classList.add('show');
+  setTimeout(() => ban.classList.remove('show'), 3500);
+}
+
+// ============================================================
+// DELETE
+// ============================================================
+async function deleteGame(id, mode) {
+  if (mode === 'library') library = library.filter(g => g.id !== id);
+  else wishlist = wishlist.filter(g => g.id !== id);
+  await deleteGameFromDB(id, mode);
+  renderAll();
+  showToast('🗑️ Διαγράφηκε!');
+}
+
+// ============================================================
+// FILTER
+// ============================================================
+function setFilter(section, val, btn) {
+  if (section === 'library') {
+    activeFilterLib = val;
+    document.querySelectorAll('#filterBarLib .filter-btn').forEach(b => b.classList.remove('active'));
+  } else {
+    activeFilterWish = val;
+    document.querySelectorAll('#filterBarWish .filter-btn').forEach(b => b.classList.remove('active'));
+  }
+  btn.classList.add('active');
+  renderGrid(section);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll() {
+  renderGrid('library');
+  renderGrid('wishlist');
+  updateStats();
+}
+
+function renderGrid(section) {
+  const isLib = section === 'library';
+  const list = isLib ? library : wishlist;
+  const filter = isLib ? activeFilterLib : activeFilterWish;
+  const gridEl = document.getElementById(isLib ? 'libraryGrid' : 'wishlistGrid');
+  const countEl = document.getElementById(isLib ? 'libCount' : 'wishCount');
+
+  console.log(`renderGrid(${section}): list=`, list.length, 'filter=', filter);
+
+  let filtered = list;
+  if (filter !== 'ALL') {
+    filtered = list.filter(g => g.console === filter || g.format === filter);
+  }
+
+  countEl.textContent = filtered.length;
+
+  if (!filtered.length) {
+    gridEl.innerHTML = `<div class="empty-state">
+      <div class="icon">${isLib ? '🎮' : '⭐'}</div>
+      <p>${isLib ? 'Η library σου είναι άδεια.<br>Πρόσθεσε το πρώτο σου παιχνίδι!' : 'Το wishlist σου είναι άδειο.'}</p>
+    </div>`;
+    return;
+  }
+
+  gridEl.innerHTML = filtered.map(g => buildCard(g, section)).join('');
+}
+
+function buildCard(g, section) {
+  const consoleBadgeClass = {
+    'PS1':'badge-ps1','PS2':'badge-ps2','PS3':'badge-ps3','PS4':'badge-ps4','PS5':'badge-ps5'
+  }[g.console] || 'badge-console';
+
+  const fmt = g.format || 'Retail';
+  const formatBadge = section === 'library' ? `<span class="badge badge-${fmt.toLowerCase()}">${fmt}</span>` : `<span class="badge badge-wishlist">⭐ Wishlist</span>`;
+
+  const coverHTML = g.cover
+    ? `<img class="card-cover" src="${g.cover}" alt="${g.title}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+       <div class="card-cover-placeholder" style="display:none;">🎮<span>${g.title}</span></div>`
+    : `<div class="card-cover-placeholder">🎮<span>${g.title}</span></div>`;
+
+  return `<div class="game-card">
+    <button class="btn-delete" onclick="deleteGame(${g.id},'${section}')" title="Διαγραφή">✕</button>
+    ${coverHTML}
+    <div class="card-info">
+      <div class="card-title">${g.title}</div>
+      <div class="card-meta">
+        <span class="badge badge-console ${consoleBadgeClass}">${g.console}</span>
+        ${formatBadge}
+      </div>
+      ${(g.price != null && g.price !== '') ? `<div class="card-price">€${parseFloat(g.price).toFixed(2)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function updateStats() {
+  document.getElementById('statLib').textContent = library.length;
+  document.getElementById('statWish').textContent = wishlist.length;
+  const totalVal = library.filter(g => g.price != null && g.price !== '').reduce((s,g) => s + parseFloat(g.price||0), 0);
+  document.getElementById('statValue').textContent = `€${totalVal.toFixed(2)}`;
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
