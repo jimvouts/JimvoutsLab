@@ -1,0 +1,2667 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>JimvoutsLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&family=Share+Tech+Mono&family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js" defer onerror="console.warn('Quagga not loaded')"></script>
+<!-- Firebase initialized in main script -->
+<style>
+  :root {
+    --bg: #080008;
+    --bg2: #0d000f;
+    --bg3: #130015;
+    --surface: #110013;
+    --surface2: #1a001e;
+    --border: #3a1a42;
+    --accent: #cc44ff;
+    --accent2: #aa22ee;
+    --accent3: #8800cc;
+    --ps: #003791;
+    --text: #f0e6f6;
+    --muted: #7a5a85;
+    --danger: #ff3b5c;
+    --success: #00e676;
+    --gold: #ffd700;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== BACKGROUND & SCANLINES ===== */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 3px,
+      rgba(160,0,255,0.018) 3px, rgba(160,0,255,0.018) 4px
+    );
+    pointer-events:none;
+    z-index:50;
+  }
+  /* Vignette */
+  body::after {
+    content:'';
+    position:fixed;
+    inset:0;
+    background: radial-gradient(ellipse at center,
+      transparent 40%,
+      rgba(4,0,8,0.55) 100%
+    );
+    pointer-events:none;
+    z-index:49;
+  }
+  /* Subtle ambient glow spots */
+  #app, #loginScreen {
+    position:relative;
+    z-index:1;
+  }
+
+  /* ===== LOGIN ===== */
+  @keyframes flicker {
+    0%,19%,21%,23%,25%,54%,56%,100% { opacity:1; }
+    20%,24%,55% { opacity:0.6; }
+  }
+  @keyframes gridMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 60px 60px; }
+  }
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+  @keyframes glitch {
+    0%,100% {  transform: translate(-4px,0); }
+    20% { clip-path: inset(30% 0 50% 0); transform: translate(4px,0); }
+    40% { clip-path: inset(60% 0 20% 0); transform: translate(-2px,0); }
+    60% { clip-path: inset(10% 0 80% 0); transform: translate(3px,0); }
+    80% { clip-path: inset(80% 0 5% 0); transform: translate(-3px,0); }
+  }
+  @keyframes pulse-border {
+    0%,100% { box-shadow: 0 0 8px rgba(204,68,255,0.4), inset 0 0 8px rgba(204,68,255,0.05); }
+    50% { box-shadow: 0 0 24px rgba(204,68,255,0.8), inset 0 0 16px rgba(204,68,255,0.1); }
+  }
+  @keyframes fadeInUp {
+    from { opacity:0; transform:translateY(30px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  #loginScreen {
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 30%, rgba(100,0,180,0.28) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 70%, rgba(0,60,180,0.22) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 50% 10%, rgba(140,0,220,0.18) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 35% at 85% 15%, rgba(0,100,200,0.15) 0%, transparent 60%),
+      #020006;
+    z-index:1000;
+    flex-direction:column;
+    gap:2rem;
+    overflow:hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Animated grid background */
+  #loginScreen::before {
+    content:'';
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(160,0,255,0.18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(160,0,255,0.18) 1px, transparent 1px);
+    background-size: 55px 55px;
+    animation: gridMove 10s linear infinite;
+    z-index:0;
+    pointer-events:none;
+  }
+
+  /* Moving scanline */
+  #loginScreen::after {
+    content:'';
+    position:absolute;
+    left:0; right:0;
+    height:160px;
+    background: linear-gradient(
+      transparent,
+      rgba(180,0,255,0.06) 40%,
+      rgba(180,0,255,0.09) 50%,
+      rgba(180,0,255,0.06) 60%,
+      transparent
+    );
+    animation: scanline 7s linear infinite;
+    z-index:1;
+    pointer-events:none;
+  }
+
+  /* Corner decorations */
+  .login-corner {
+    position:absolute;
+    width:60px; height:60px;
+    z-index:2;
+    pointer-events:none;
+  }
+  .login-corner::before, .login-corner::after {
+    content:'';
+    position:absolute;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .login-corner::before { width:2px; height:100%; top:0; }
+  .login-corner::after { width:100%; height:2px; top:0; }
+  .login-corner.tl { top:20px; left:20px; }
+  .login-corner.tr { top:20px; right:20px; transform:scaleX(-1); }
+  .login-corner.bl { bottom:20px; left:20px; transform:scaleY(-1); }
+  .login-corner.br { bottom:20px; right:20px; transform:scale(-1); }
+
+  .login-content {
+    position:relative; z-index:3;
+    display:flex; flex-direction:column; align-items:center;
+    gap:0.5rem;
+    animation: fadeInUp 0.8s ease both;
+    pointer-events:none;
+  }
+
+  .login-eyebrow {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.65rem;
+    color: var(--accent);
+    letter-spacing:0.6em;
+    text-transform:uppercase;
+    opacity:0.7;
+    margin-bottom:0.5rem;
+  }
+
+  .login-logo {
+    font-family:'Orbitron', sans-serif;
+    font-size:3.5rem;
+    font-weight:900;
+    letter-spacing:0.15em;
+    color: #fff;
+    text-shadow:
+      0 0 10px rgba(204,68,255,0.9),
+      0 0 30px rgba(204,68,255,0.6),
+      0 0 60px rgba(204,68,255,0.3),
+      0 0 100px rgba(136,0,204,0.2);
+    animation: flicker 8s infinite;
+    position:relative;
+    line-height:1;
+  }
+
+  /* Glitch layer */
+  .login-logo::after {
+    content: 'JimvoutsLab';
+    position:absolute; inset:0;
+    color: #ff00ff;
+    text-shadow: 2px 0 #ff00ff;
+    animation: glitch 5s infinite step-start;
+    opacity:0.4;
+    mix-blend-mode: screen;
+  }
+
+  .login-sub {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.7rem;
+    color: var(--muted);
+    letter-spacing:0.4em;
+    text-transform:uppercase;
+    margin-top:0.3rem;
+  }
+
+  .login-divider {
+    display:flex; align-items:center; gap:1rem;
+    margin: 0.5rem 0;
+    width: min(400px, 90vw);
+  }
+  .login-divider::before, .login-divider::after {
+    content:'';
+    flex:1; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent));
+    box-shadow: 0 0 6px rgba(204,68,255,0.5);
+  }
+  .login-divider::after { background: linear-gradient(90deg, var(--accent), transparent); }
+  .login-divider span {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.6rem;
+    color: var(--accent);
+    letter-spacing:0.2em;
+    text-shadow: 0 0 8px rgba(204,68,255,0.8);
+  }
+
+  .login-box {
+    background: rgba(17,0,19,0.9);
+    border: 1px solid rgba(136,0,204,0.5);
+    border-radius:4px;
+    padding:2.5rem;
+    width:min(400px, 90vw);
+    display:flex;
+    flex-direction:column;
+    gap:1.2rem;
+    position:relative;
+    overflow:visible;
+    z-index:4;
+    pointer-events:auto;
+    animation: pulse-border 3s ease-in-out infinite;
+    opacity:1;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Top accent line */
+  .login-box::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:20px;
+    height:2px;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  /* System status line */
+  .login-status {
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.62rem;
+    color: rgba(204,68,255,0.5);
+    letter-spacing:0.1em;
+    margin-bottom:-0.5rem;
+  }
+
+  .login-box label {
+    font-family:'Exo 2', sans-serif;
+    font-size:0.72rem;
+    color: var(--accent);
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    display:block;
+    margin-bottom:0.4rem;
+    font-weight:600;
+  }
+  .login-box input {
+    width:100%;
+    background: rgba(8,0,8,0.8);
+    border: 1px solid rgba(136,0,204,0.4);
+    border-radius:2px;
+    padding:0.75rem 1rem;
+    color: var(--accent);
+    font-family:'Share Tech Mono', monospace;
+    font-size:16px; /* Prevents iOS auto-zoom on focus */
+    outline:none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing:0.05em;
+    -webkit-appearance: none;
+  }
+  .login-box input::placeholder { color: rgba(122,90,133,0.4); }
+  .login-box input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(204,68,255,0.3), inset 0 0 8px rgba(204,68,255,0.05);
+  }
+  .btn-login {
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius:2px;
+    padding:0.9rem;
+    color: var(--accent);
+    font-family:'Orbitron', sans-serif;
+    font-size:0.85rem;
+    font-weight:700;
+    letter-spacing:0.3em;
+    cursor:pointer;
+    transition: all 0.2s;
+    margin-top:0.5rem;
+    position:relative;
+    overflow:hidden;
+    text-transform:uppercase;
+
+  }
+  .btn-login::before {
+    content:'';
+    position:absolute; inset:0;
+    background: linear-gradient(135deg, var(--accent3), var(--accent));
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+  .btn-login:hover { color:white; box-shadow: 0 0 20px rgba(204,68,255,0.5); }
+  .btn-login:hover::before { opacity:1; }
+  .btn-login span { position:relative; z-index:1; }
+  /* iOS tap fix */
+  .btn-login, button, input, select { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .login-err {
+    color:var(--danger);
+    font-family:'Share Tech Mono', monospace;
+    font-size:0.75rem;
+    text-align:center;
+    display:none;
+    letter-spacing:0.1em;
+  }
+
+  /* ===== MAIN APP ===== */
+  #app { display:none; min-height:100vh; }
+
+  /* ===== NAVBAR ===== */
+  .navbar {
+    position:sticky; top:0; z-index:100;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter:blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding:0 2rem;
+    display:flex;
+    align-items:center;
+    gap:2rem;
+    height:64px;
+  }
+  .nav-logo {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.8rem;
+    letter-spacing:0.15em;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    flex-shrink:0;
+  }
+  .nav-stats {
+    display:flex; gap:1.5rem; flex:1;
+  }
+  .stat-pill {
+    background: rgba(204,68,255,0.06);
+    border: 1px solid rgba(204,68,255,0.15);
+    border-radius:20px;
+    padding:0.3rem 1rem;
+    font-size:0.8rem;
+    color:var(--muted);
+    display:flex; align-items:center; gap:0.4rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .stat-pill span { color:var(--accent); font-weight:700; font-size:0.9rem; }
+  .nav-user {
+    font-size:0.8rem; color:var(--muted);
+    display:flex; align-items:center; gap:0.8rem;
+  }
+  .btn-logout {
+    background: rgba(255,59,92,0.06);
+    border:1px solid rgba(255,59,92,0.2);
+    border-radius:10px;
+    padding:0.3rem 0.8rem;
+    color:var(--muted);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.8rem;
+    cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .btn-logout:hover {
+    border-color:rgba(255,59,92,0.6);
+    color:var(--danger);
+    background:rgba(255,59,92,0.15);
+    box-shadow: 0 4px 14px rgba(255,59,92,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+    transform:translateY(-1px);
+  }
+
+  /* ===== ADD PANEL ===== */
+  .add-panel {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding:1.5rem 2rem;
+    position:relative;
+    overflow:visible;
+  }
+  .add-panel::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .add-tabs {
+    display:flex; gap:0.5rem; margin-bottom:1.2rem;
+  }
+  .add-tab {
+    background: rgba(204,68,255,0.06);
+    border:1px solid rgba(204,68,255,0.18);
+    border-radius:14px;
+    padding:0.5rem 1.2rem;
+    color:var(--muted);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.9rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    letter-spacing:0.05em;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    position:relative; overflow:hidden;
+  }
+  .add-tab::before {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 60%);
+    border-radius:inherit; pointer-events:none;
+  }
+  .add-tab.active {
+    background: rgba(136,0,204,0.35);
+    border-color: rgba(204,68,255,0.6);
+    color:white;
+    box-shadow: 0 4px 20px rgba(136,0,204,0.4), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(204,68,255,0.2);
+  }
+  .add-tab:hover:not(.active) {
+    background: rgba(204,68,255,0.12);
+    border-color:rgba(204,68,255,0.35);
+    color:var(--text);
+    transform:translateY(-1px);
+    box-shadow: 0 4px 16px rgba(136,0,204,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .add-form { display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; overflow:visible; position:relative; }
+  .form-group { display:flex; flex-direction:column; gap:0.4rem; }
+  .form-group label {
+    font-size:0.72rem;
+    color:var(--muted);
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+  }
+  .form-group input, .form-group select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius:6px;
+    padding:0.6rem 0.9rem;
+    color:var(--text);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.95rem;
+    outline:none;
+    transition:border-color 0.2s;
+    min-width:160px;
+  }
+  .form-group input:focus, .form-group select:focus { border-color:var(--accent); }
+  .form-group select option { background: var(--bg2); }
+
+  /* Search results dropdown */
+  .search-wrap { position:relative; z-index:500; }
+  .search-results {
+    position:absolute;
+    top:calc(100% + 4px); left:0;
+    background:#1a001e;
+    border:2px solid #8800cc;
+    border-radius:8px;
+    width:320px;
+    max-height:280px;
+    overflow-y:auto;
+    z-index:1000;
+    display:none;
+    box-shadow: 0 8px 40px rgba(136,0,204,0.4), 0 0 0 1px rgba(204,68,255,0.2);
+  }
+  .search-results.show { display:block; }
+  .search-item {
+    display:flex; align-items:center; gap:0.8rem;
+    padding:0.7rem 1rem;
+    cursor:pointer;
+    transition:background 0.15s;
+    border-bottom:1px solid var(--border);
+  }
+  .search-item:last-child { border-bottom:none; }
+  .search-item:hover { background:var(--bg3); }
+  .search-item img { width:40px; height:56px; object-fit:cover; border-radius:4px; flex-shrink:0; background:var(--bg3); }
+  .search-item-info { flex:1; overflow:hidden; }
+  .search-item-title { font-size:0.9rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .search-item-year { font-size:0.75rem; color:var(--muted); }
+
+  .btn-add {
+    background: rgba(136,0,204,0.25);
+    border:1px solid rgba(204,68,255,0.45);
+    border-radius:12px;
+    padding:0.65rem 1.5rem;
+    color:white;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.1rem;
+    letter-spacing:0.15em;
+    cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    white-space:nowrap;
+    backdrop-filter: blur(16px) saturate(200%);
+    -webkit-backdrop-filter: blur(16px) saturate(200%);
+    box-shadow: 0 4px 20px rgba(136,0,204,0.3), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.2);
+    position:relative; overflow:hidden;
+    text-shadow: 0 0 10px rgba(204,68,255,0.5);
+  }
+  .btn-add::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    border-radius:inherit; pointer-events:none;
+  }
+  .btn-add:hover {
+    background: rgba(136,0,204,0.4);
+    border-color:rgba(204,68,255,0.7);
+    transform:translateY(-2px);
+    box-shadow: 0 8px 30px rgba(136,0,204,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .btn-add:active { transform:translateY(0); }
+
+  .btn-scan {
+    background: rgba(204,68,255,0.07);
+    border:1px solid rgba(204,68,255,0.2);
+    border-radius:12px;
+    padding:0.65rem 1rem;
+    color:var(--accent);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.85rem;
+    font-weight:600;
+    cursor:pointer;
+    display:flex; align-items:center; gap:0.5rem;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    position:relative; overflow:hidden;
+  }
+  .btn-scan::before {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+    pointer-events:none;
+  }
+  .btn-scan:hover {
+    border-color:rgba(204,68,255,0.5);
+    background:rgba(204,68,255,0.15);
+    transform:translateY(-1px);
+    box-shadow: 0 4px 20px rgba(136,0,204,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  /* ===== BANNER ===== */
+  .banner {
+    position:fixed; top:80px; left:50%; transform:translateX(-50%);
+    background:#1a001e;
+    border:1px solid var(--danger);
+    border-radius:10px;
+    padding:1rem 1.5rem;
+    z-index:500;
+    display:none;
+    flex-direction:column;
+    gap:0.4rem;
+    max-width:400px;
+    box-shadow:0 0 30px rgba(255,59,92,0.3);
+    animation: bannerIn 0.3s ease;
+  }
+  @keyframes bannerIn {
+    from { opacity:0; transform:translateX(-50%) translateY(-10px); }
+    to { opacity:1; transform:translateX(-50%) translateY(0); }
+  }
+  .banner.show { display:flex; }
+  .banner-title { font-family:'Bebas Neue',sans-serif; color:var(--danger); font-size:1.1rem; letter-spacing:0.1em; }
+  .banner-msg { font-size:0.9rem; color:var(--text); }
+
+  /* ===== CAMERA MODAL ===== */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.85);
+    z-index:10000; display:none; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .modal { cursor:default; position:relative; z-index:10001; }
+  .modal-overlay.show { display:flex; }
+  .modal {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:1.5rem;
+    width:min(420px, 90vw);
+    display:flex; flex-direction:column; gap:1rem;
+  }
+  .modal-title {
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.4rem;
+    letter-spacing:0.1em;
+    color:var(--accent);
+  }
+  #cameraFeed {
+    width:100%; border-radius:8px;
+    background:var(--bg3);
+    aspect-ratio:16/9;
+    object-fit:cover;
+  }
+  .barcode-input-wrap { display:flex; gap:0.5rem; }
+  .barcode-input-wrap input {
+    flex:1;
+    background:var(--bg3); border:1px solid var(--border); border-radius:6px;
+    padding:0.6rem 0.9rem; color:var(--text);
+    font-family:'Share Tech Mono',monospace; font-size:0.95rem; outline:none;
+  }
+  .barcode-input-wrap input:focus { border-color:var(--accent); }
+  .btn-modal-search {
+    background: rgba(136,0,204,0.3);
+    border:1px solid rgba(204,68,255,0.5);
+    border-radius:8px;
+    padding:0.6rem 1.2rem; color:white;
+    font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem;
+    cursor:pointer;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    box-shadow: 0 4px 14px rgba(136,0,204,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition:all 0.2s;
+  }
+  .btn-modal-search:hover {
+    background:rgba(136,0,204,0.5);
+    box-shadow: 0 6px 20px rgba(136,0,204,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .btn-close {
+    background: rgba(255,59,92,0.06);
+    border:1px solid rgba(255,59,92,0.2);
+    border-radius:8px;
+    padding:0.5rem 1rem; color:var(--muted); cursor:pointer;
+    font-family:'Rajdhani',sans-serif; font-size:0.9rem;
+    align-self:flex-end;
+    transition:all 0.25s;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    position:relative; z-index:10002;
+    pointer-events:auto;
+  }
+  .btn-close:hover {
+    border-color:rgba(255,59,92,0.6);
+    color:var(--danger);
+    background:rgba(255,59,92,0.12);
+    box-shadow: 0 4px 14px rgba(255,59,92,0.2);
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main { padding:2rem; }
+
+  .section-header {
+    display:flex; align-items:center; gap:1rem;
+    margin-bottom:1.5rem;
+  }
+  .section-title {
+    font-family:'Exo 2', sans-serif;
+    font-size:1.6rem;
+    font-weight:700;
+    letter-spacing:0.06em;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:0.75rem;
+    text-transform:uppercase;
+  }
+  .section-icon {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    filter: drop-shadow(0 0 6px rgba(204,68,255,0.6));
+  }
+  .section-count {
+    background: rgba(204,68,255,0.08);
+    border:1px solid rgba(204,68,255,0.25);
+    border-radius:20px;
+    padding:0.2rem 0.9rem;
+    font-size:0.82rem;
+    color:var(--accent);
+    font-weight:700;
+    font-family:'Exo 2', sans-serif;
+    backdrop-filter:blur(8px);
+    box-shadow: 0 0 10px rgba(204,68,255,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+    letter-spacing:0.05em;
+  }
+
+  /* ===== FILTER BAR ===== */
+  .filter-bar {
+    display:flex; gap:0.5rem; flex-wrap:wrap;
+    margin-bottom:1.5rem;
+  }
+  .filter-btn {
+    background: rgba(204,68,255,0.05);
+    border:1px solid rgba(204,68,255,0.15);
+    border-radius:20px;
+    padding:0.3rem 1rem;
+    color:var(--muted);
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.85rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    letter-spacing:0.05em;
+    backdrop-filter: blur(10px) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+    position:relative; overflow:hidden;
+  }
+  .filter-btn::before {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%);
+    border-radius:inherit; pointer-events:none;
+  }
+  .filter-btn.active {
+    background: rgba(136,0,204,0.3);
+    border-color: rgba(204,68,255,0.55);
+    color:white;
+    box-shadow: 0 4px 16px rgba(136,0,204,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .filter-btn:hover:not(.active) {
+    background: rgba(204,68,255,0.1);
+    border-color:rgba(204,68,255,0.3);
+    color:var(--text);
+    transform:translateY(-1px);
+    box-shadow: 0 4px 12px rgba(136,0,204,0.2), inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  /* ===== GRID ===== */
+  .games-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap:1.2rem;
+  }
+  @media(min-width:768px){
+    .games-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  }
+
+  .game-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:visible;
+    transition:transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    cursor:default;
+    position:relative;
+    animation: cardIn 0.4s ease both;
+  }
+  @keyframes cardIn {
+    from { opacity:0; transform:scale(0.92) translateY(10px); }
+    to { opacity:1; transform:scale(1) translateY(0); }
+  }
+  .game-card:hover {
+    transform:translateY(-4px) scale(1.02);
+    border-color:var(--accent);
+    box-shadow:0 8px 32px rgba(0,212,255,0.15);
+  }
+  .card-cover {
+    width:100%; aspect-ratio:3/4;
+    object-fit:cover;
+    display:block;
+    background: var(--bg3);
+  }
+  .card-cover-placeholder {
+    width:100%; aspect-ratio:3/4;
+    display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, var(--bg3), var(--surface2));
+    color:var(--muted);
+    font-size:2.5rem;
+    flex-direction:column;
+    gap:0.5rem;
+  }
+  .card-cover-placeholder span {
+    font-family:'Rajdhani',sans-serif;
+    font-size:0.7rem;
+    color:var(--muted);
+    text-align:center;
+    padding:0 0.5rem;
+  }
+  .card-info {
+    padding:0.7rem;
+    display:flex; flex-direction:column; gap:0.3rem;
+  }
+  .card-title {
+    font-size:0.88rem;
+    font-weight:700;
+    line-height:1.2;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:visible;
+  }
+  .card-meta {
+    display:flex; flex-wrap:wrap; gap:0.3rem;
+    margin-top:0.2rem;
+  }
+  .badge {
+    border-radius:4px;
+    padding:0.15rem 0.5rem;
+    font-size:0.68rem;
+    font-weight:700;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+  }
+  .badge-console { background:var(--ps); color:white; }
+  .badge-ps1 { background:#1a1a4e; }
+  .badge-ps2 { background:#003791; }
+  .badge-ps3 { background:#00439c; }
+  .badge-ps4 { background:#0070cc; }
+  .badge-ps5 { background:#0078ff; }
+  .badge-retail { background:rgba(0,230,118,0.15); color:var(--success); border:1px solid rgba(0,230,118,0.3); }
+  .badge-digital { background:rgba(124,58,237,0.15); color:#a78bfa; border:1px solid rgba(124,58,237,0.3); }
+  .badge-both { background:rgba(255,107,53,0.15); color:var(--accent2); border:1px solid rgba(255,107,53,0.3); }
+  .badge-wishlist { background:rgba(255,215,0,0.15); color:var(--gold); border:1px solid rgba(255,215,0,0.3); }
+
+  .card-price {
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.78rem;
+    color:var(--gold);
+    margin-top:0.2rem;
+  }
+  .btn-delete {
+    position:absolute; top:6px; right:6px;
+    background:rgba(10,10,15,0.8);
+    border:1px solid var(--border);
+    border-radius:50%;
+    width:26px; height:26px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    opacity:0;
+    transition:opacity 0.2s, border-color 0.2s;
+    color:var(--muted);
+    font-size:0.75rem;
+    backdrop-filter:blur(4px);
+  }
+  .game-card:hover .btn-delete { opacity:1; }
+  .btn-delete:hover { border-color:var(--danger); color:var(--danger); }
+
+  /* Wishlist section separator */
+  .section-divider {
+    margin:3rem 0 2rem;
+    border:none;
+    border-top:1px solid var(--border);
+    position:relative;
+  }
+
+  .loading-spin {
+    display:inline-block;
+    width:14px; height:14px;
+    border:2px solid var(--border);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin 0.6s linear infinite;
+    vertical-align:middle;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .empty-state {
+    grid-column:1/-1;
+    display:flex; flex-direction:column; align-items:center; gap:1rem;
+    padding:3rem;
+    color:var(--muted);
+  }
+  .empty-state .icon { font-size:3rem; }
+  .empty-state p { font-size:0.95rem; text-align:center; }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:2rem; right:2rem;
+    background:#1a001e;
+    border:1px solid var(--success);
+    border-radius:8px;
+    padding:0.8rem 1.2rem;
+    font-size:0.9rem;
+    z-index:800;
+    opacity:0;
+    transform:translateY(10px);
+    transition:all 0.3s;
+    pointer-events:none;
+  }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.error { border-color:var(--danger); }
+
+  /* ===== FINISHED GAMES SECTION ===== */
+  .badge-finished { background:rgba(0,230,118,0.15); color:var(--success); border:1px solid rgba(0,230,118,0.3); }
+  /* Platinum card overlay */
+  .plat-overlay {
+    position:absolute;
+    bottom:8px; right:8px;
+    width:44px; height:44px;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle, rgba(180,150,255,0.25) 0%, rgba(100,60,200,0.15) 60%, transparent 100%);
+    border-radius:50%;
+    animation: platPulse 2.5s ease-in-out infinite;
+    pointer-events:none;
+    z-index:2;
+  }
+  @keyframes platPulse {
+    0%,100% { transform:scale(1);   filter:drop-shadow(0 0 4px rgba(180,150,255,0.5)); }
+    50%      { transform:scale(1.1); filter:drop-shadow(0 0 10px rgba(200,170,255,0.9)); }
+  }
+  .plat-overlay svg { filter:drop-shadow(0 0 3px rgba(180,150,255,0.8)); }
+
+  .badge-platinum {
+    background: linear-gradient(135deg, rgba(180,180,255,0.2), rgba(140,140,220,0.15));
+    color: #c8c8ff;
+    border:1px solid rgba(200,200,255,0.4);
+    display:inline-flex; align-items:center; gap:0.3rem;
+  }
+
+  /* Card action buttons top-right */
+  .card-actions {
+    position:absolute; top:6px; right:6px;
+    display:flex; gap:4px;
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+  .game-card:hover .card-actions { opacity:1; }
+  .btn-card-action {
+    background:rgba(10,10,15,0.85);
+    border:1px solid var(--border);
+    border-radius:50%;
+    width:26px; height:26px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:border-color 0.2s, color 0.2s, background 0.2s;
+    color:var(--muted);
+    font-size:0.7rem;
+    backdrop-filter:blur(4px);
+    flex-shrink:0;
+  }
+  .btn-card-finish { border-color:rgba(0,230,118,0.3); }
+  .btn-card-finish:hover { border-color:var(--success); color:var(--success); background:rgba(0,230,118,0.15); }
+  .btn-card-delete:hover { border-color:var(--danger); color:var(--danger); background:rgba(255,59,92,0.12); }
+  .btn-card-info:hover { border-color:var(--accent); color:var(--accent); background:rgba(204,68,255,0.12); }
+
+  /* Game info modal content */
+  .hltb-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0.6rem 0.8rem;
+    background:rgba(204,68,255,0.05);
+    border:1px solid rgba(204,68,255,0.12);
+    border-radius:8px;
+  }
+  .hltb-label { font-size:0.85rem; color:var(--muted); display:flex; align-items:center; gap:0.5rem; }
+  .hltb-value { font-family:'Share Tech Mono',monospace; font-size:0.9rem; color:var(--accent); font-weight:700; }
+
+  /* Confirm/Info modal styling */
+  #confirmModal .modal, #gameInfoModal .modal, #finishModal .modal {
+    animation: fadeInUp 0.25s ease;
+  }
+
+  /* ============================================================
+     MOBILE OPTIMIZATION - iPhone 14/15 (390px viewport)
+  ============================================================ */
+  @media (max-width: 767px) {
+
+    /* ── NAVBAR ── */
+    .navbar {
+      padding: 0 1rem;
+      height: auto;
+      min-height: 56px;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+    .nav-logo { font-size: 1.1rem; }
+    .nav-stats {
+      order: 3;
+      width: 100%;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      padding-bottom: 0.4rem;
+    }
+    .stat-pill {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.6rem;
+    }
+    .nav-user { margin-left: auto; }
+
+    /* ── ADD PANEL ── */
+    .add-panel { padding: 1rem; }
+    .add-tabs { gap: 0.4rem; }
+    .add-tab {
+      font-size: 0.78rem;
+      padding: 0.45rem 0.8rem;
+      border-radius: 10px;
+    }
+    .add-form {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .form-group { width: 100%; }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      min-width: unset;
+      font-size: 16px; /* prevents iOS zoom */
+    }
+    .btn-add {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border-radius: 10px;
+    }
+    .btn-scan {
+      width: 100%;
+      justify-content: center;
+      padding: 0.65rem;
+      border-radius: 10px;
+    }
+    .search-results { width: 100%; left: 0; }
+
+    /* ── SECTION HEADERS ── */
+    .section-header { margin-bottom: 1rem; }
+    .section-title { font-size: 1.25rem; }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.7rem;
+    }
+
+    /* ── GAMES GRID ── */
+    .games-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    /* ── GAME CARDS ── */
+    .card-title { font-size: 0.8rem; }
+    .badge { font-size: 0.6rem; padding: 0.12rem 0.4rem; }
+    .card-price { font-size: 0.72rem; }
+
+    /* Always show action buttons on mobile (no hover) */
+    .card-actions { opacity: 1; }
+    .btn-card-action {
+      width: 28px;
+      height: 28px;
+      font-size: 0.65rem;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main { padding: 1rem; }
+
+    /* ── MODALS ── */
+    .modal {
+      width: 92vw !important;
+      max-width: 92vw !important;
+      padding: 1.2rem !important;
+      gap: 0.9rem !important;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 1rem !important; }
+
+    /* ── LOGIN SCREEN ── */
+    .login-logo { font-size: 2.4rem; }
+    .login-box {
+      padding: 1.5rem 1.2rem;
+      width: 92vw;
+    }
+    .login-eyebrow { font-size: 0.55rem; letter-spacing: 0.4em; }
+    .login-sub { font-size: 0.6rem; letter-spacing: 0.25em; }
+    .login-corner { width: 40px; height: 40px; }
+    .login-corner.tl { top: 12px; left: 12px; }
+    .login-corner.tr { top: 12px; right: 12px; }
+    .login-corner.bl { bottom: 12px; left: 12px; }
+    .login-corner.br { bottom: 12px; right: 12px; }
+
+    /* ── SECTION DIVIDER ── */
+    .section-divider { margin: 1.5rem 0 1.2rem; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { padding: 1.5rem; }
+    .empty-state .icon { font-size: 2rem; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* ── SHOW MORE BTN ── */
+    #libraryShowMore button,
+    #wishlistShowMore button,
+    #finishedShowMore button {
+      font-size: 0.8rem;
+      padding: 0.45rem 1.5rem;
+    }
+
+    /* ── SEARCH ITEM ── */
+    .search-item { padding: 0.6rem 0.8rem; gap: 0.6rem; }
+    .search-item img { width: 34px; height: 48px; }
+    .search-item-title { font-size: 0.82rem; }
+    .search-item-year  { font-size: 0.7rem; }
+  }
+
+  /* Extra small screens (iPhone SE, 375px) */
+  @media (max-width: 390px) {
+    .games-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+    .nav-logo { font-size: 1rem; }
+    .add-tab { font-size: 0.72rem; padding: 0.4rem 0.65rem; }
+  }
+
+
+  /* ============================================================
+     MOBILE NAVBAR - Hamburger + Drawer
+  ============================================================ */
+  .nav-hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    background: rgba(204,68,255,0.08);
+    border: 1px solid rgba(204,68,255,0.25);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+    touch-action: manipulation;
+  }
+  .nav-hamburger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: all 0.25s;
+    box-shadow: 0 0 6px rgba(204,68,255,0.5);
+  }
+  /* Animated X when open */
+  .nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .nav-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  .nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* Drawer */
+  .nav-drawer {
+    display: none;
+    position: sticky;
+    top: 56px;
+    z-index: 99;
+    background: rgba(8,0,8,0.97);
+    border-bottom: 1px solid rgba(204,68,255,0.2);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 1rem;
+    flex-direction: column;
+    gap: 0.8rem;
+    animation: drawerSlide 0.2s ease;
+  }
+  @keyframes drawerSlide {
+    from { opacity:0; transform:translateY(-8px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .nav-drawer.open { display: flex; }
+
+  .nav-drawer-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .nav-drawer-stats .stat-pill {
+    font-size: 0.82rem;
+    padding: 0.3rem 0.8rem;
+  }
+  .nav-drawer-stats .stat-pill strong {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .nav-drawer-user {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(204,68,255,0.1);
+  }
+
+  @media (max-width: 767px) {
+    /* Hide desktop nav elements */
+    .nav-stats { display: none !important; }
+    #navUser   { display: none !important; }
+
+    /* Show hamburger */
+    .nav-hamburger { display: flex; }
+
+    /* Compact navbar */
+    .navbar {
+      height: 56px !important;
+      padding: 0 1rem !important;
+      flex-wrap: nowrap !important;
+      gap: 0 !important;
+    }
+    .nav-logo {
+      font-size: 1.2rem;
+      flex: 1;
+    }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- CYBERPUNK BACKGROUND -->
+<canvas id="bgCanvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:0.75;"></canvas>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <!-- Neon floor reflection -->
+  <div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(180,0,255,0.7) 30%,rgba(100,150,255,0.7) 50%,rgba(180,0,255,0.7) 70%,transparent);box-shadow:0 0 20px rgba(180,0,255,0.5),0 0 60px rgba(100,100,255,0.2);pointer-events:none;z-index:2;"></div>
+  <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(140,0,220,0.5) 40%,rgba(140,0,220,0.5) 60%,transparent);box-shadow:0 0 12px rgba(140,0,220,0.4);pointer-events:none;z-index:2;"></div>
+  <!-- Corner decorations -->
+  <div class="login-corner tl"></div>
+  <div class="login-corner tr"></div>
+  <div class="login-corner bl"></div>
+  <div class="login-corner br"></div>
+
+  <div class="login-content">
+    <div class="login-eyebrow">// SYSTEM ACCESS REQUIRED //</div>
+    <div class="login-logo">JimvoutsLab</div>
+    <div class="login-sub">Personal Game Collection Matrix</div>
+  </div>
+
+  <div class="login-divider"><span>AUTHENTICATE</span></div>
+
+  <div class="login-box">
+    <div class="login-status">&gt; SYS.CONNECT :: AWAITING CREDENTIALS_</div>
+    <div>
+      <label>// User ID</label>
+      <input type="email" id="loginEmail" placeholder="user@network.net" autocomplete="email">
+    </div>
+    <div>
+      <label>// Access Key</label>
+      <input type="password" id="loginPassword" placeholder="••••••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()"><span>[ JACK IN ]</span></button>
+    <div class="login-err" id="loginErr">// ERR: INVALID CREDENTIALS — ACCESS DENIED</div>
+  </div>
+</div>
+
+<!-- DUPLICATE BANNER -->
+<div class="banner" id="dupBanner">
+  <div class="banner-title">⚠️ Παιχνίδι ήδη υπάρχει!</div>
+  <div class="banner-msg" id="dupMsg"></div>
+</div>
+
+<!-- CAMERA MODAL -->
+<div id="cameraModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#110013;border:1px solid #3a1a42;border-radius:12px;padding:1.5rem;width:min(420px,90vw);display:flex;flex-direction:column;gap:1rem;position:relative;z-index:10001;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.1em;color:#cc44ff;">📷 BARCODE SCANNER</div>
+    <video id="cameraFeed" autoplay playsinline muted style="width:100%;border-radius:8px;background:#130015;aspect-ratio:16/9;object-fit:cover;"></video>
+    <div style="font-size:0.8rem;color:#7a5a85;">Ή πληκτρολόγησε το barcode χειροκίνητα:</div>
+    <div style="display:flex;gap:0.5rem;">
+      <input type="text" id="manualBarcode" placeholder="EAN barcode (π.χ. 711719516323)" maxlength="20" style="flex:1;background:#130015;border:1px solid #3a1a42;border-radius:6px;padding:0.6rem 0.9rem;color:#f0e6f6;font-family:'Share Tech Mono',monospace;font-size:0.95rem;outline:none;">
+      <button onclick="searchByBarcode()" style="background:rgba(136,0,204,0.3);border:1px solid rgba(204,68,255,0.5);border-radius:8px;padding:0.6rem 1.2rem;color:white;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;">ΑΝΑΖΗΤΗΣΗ</button>
+    </div>
+    <button id="closeCameraBtn" style="background:rgba(255,59,92,0.1);border:1px solid rgba(255,59,92,0.4);border-radius:8px;padding:0.6rem 1.2rem;color:#ff3b5c;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;align-self:flex-end;letter-spacing:0.08em;">✕ ΚΛΕΙΣΙΜΟ</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="mainNav">
+    <!-- Logo always visible -->
+    <div class="nav-logo">JimvoutsLab</div>
+
+    <!-- Desktop: stats inline | Mobile: hidden in drawer -->
+    <div class="nav-stats" id="navStats">
+      <div class="stat-pill">🎮 Library: <span id="statLib">0</span></div>
+      <div class="stat-pill">⭐ Wishlist: <span id="statWish">0</span></div>
+      <div class="stat-pill">✅ Finished: <span id="statFinished">0</span></div>
+      <div class="stat-pill" id="statValueWrap">💰 Αξία: <span id="statValue">€0</span></div>
+    </div>
+
+    <!-- Desktop: user+logout | Mobile: hamburger -->
+    <div class="nav-user" id="navUser">
+      <span id="navEmail" style="font-size:0.75rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      <button class="btn-logout" onclick="doLogout()">LOGOUT</button>
+    </div>
+
+    <!-- Mobile hamburger button -->
+    <button class="nav-hamburger" id="navHamburger" onclick="toggleNavDrawer()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- Mobile drawer (slides down below navbar) -->
+  <div class="nav-drawer" id="navDrawer">
+    <div class="nav-drawer-stats">
+      <div class="stat-pill">🎮 <strong id="statLibM">0</strong> Library</div>
+      <div class="stat-pill">⭐ <strong id="statWishM">0</strong> Wishlist</div>
+      <div class="stat-pill">✅ <strong id="statFinM">0</strong> Finished</div>
+      <div class="stat-pill">💰 Αξία: <strong id="statValM">€0</strong></div>
+    </div>
+    <div class="nav-drawer-user">
+      <span id="navEmailM" style="font-size:0.8rem;color:var(--muted);"></span>
+      <button class="btn-logout" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- ADD PANEL -->
+  <div class="add-panel">
+    <div class="add-tabs">
+      <button class="add-tab active" id="tabLib" onclick="switchAddTab('library')">➕ ΠΡΟΣΘΗΚΗ ΣΤΗΝ LIBRARY</button>
+      <button class="add-tab" id="tabWish" onclick="switchAddTab('wishlist')">⭐ ΠΡΟΣΘΗΚΗ ΣΤΟ WISHLIST</button>
+    </div>
+
+    <!-- Library Form -->
+    <div class="add-form" id="formLibrary">
+      <div class="form-group search-wrap">
+        <label>Τίτλος παιχνιδιού</label>
+        <input type="text" id="searchInput" placeholder="Αναζήτηση τίτλου..." oninput="onSearchInput()" autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div class="form-group">
+        <label>Κονσόλα</label>
+        <select id="consoleSelect">
+          <option value="PS1">PS1</option>
+          <option value="PS2">PS2</option>
+          <option value="PS3">PS3</option>
+          <option value="PS4" selected>PS4</option>
+          <option value="PS5">PS5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Έκδοση</label>
+        <select id="formatSelect">
+          <option value="Retail">Retail</option>
+          <option value="Digital">Digital</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Τιμή αγοράς (€) - προαιρετικό</label>
+        <input type="number" id="priceInput" placeholder="π.χ. 29.99" step="0.01" min="0">
+      </div>
+      <button class="btn-scan" onclick="openCamera()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="3" height="10"/><rect x="7" y="5" width="2" height="14"/><rect x="11" y="7" width="2" height="10"/><rect x="15" y="4" width="3" height="16"/><rect x="20" y="7" width="2" height="10"/></svg>
+        BARCODE
+      </button>
+      <button class="btn-add" onclick="addGame('library')">ADD TO LIBRARY</button>
+    </div>
+
+    <!-- Wishlist Form -->
+    <div class="add-form" id="formWishlist" style="display:none;">
+      <div class="form-group search-wrap">
+        <label>Τίτλος παιχνιδιού</label>
+        <input type="text" id="searchInputWish" placeholder="Αναζήτηση τίτλου..." oninput="onSearchInputWish()" autocomplete="off">
+        <div class="search-results" id="searchResultsWish"></div>
+      </div>
+      <div class="form-group">
+        <label>Κονσόλα</label>
+        <select id="consoleSelectWish">
+          <option value="PS1">PS1</option>
+          <option value="PS2">PS2</option>
+          <option value="PS3">PS3</option>
+          <option value="PS4" selected>PS4</option>
+          <option value="PS5">PS5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Έκδοση</label>
+        <select id="formatSelectWish">
+          <option value="Retail">Retail</option>
+          <option value="Digital">Digital</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <button class="btn-add" onclick="addGame('wishlist')">ADD TO WISHLIST</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- LIBRARY SECTION -->
+    <div class="section-header">
+      <div class="section-title">
+        <span class="section-icon">
+          <!-- PS Store-style library icon -->
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer rounded rect (like PS library icon) -->
+            <rect x="2" y="2" width="26" height="26" rx="5" fill="rgba(136,0,204,0.18)" stroke="rgba(204,68,255,0.65)" stroke-width="1.4"/>
+            <!-- Left vertical bar (thick) -->
+            <rect x="6" y="7" width="5" height="16" rx="1.5" fill="rgba(204,68,255,0.75)" stroke="rgba(204,68,255,0.4)" stroke-width="0.5"/>
+            <!-- Top horizontal bar -->
+            <rect x="13" y="7" width="11" height="4" rx="1.5" fill="rgba(204,68,255,0.5)"/>
+            <!-- Middle horizontal bar -->
+            <rect x="13" y="13" width="8" height="3" rx="1.5" fill="rgba(204,68,255,0.35)"/>
+            <!-- Bottom horizontal bar -->
+            <rect x="13" y="18" width="9" height="3" rx="1.5" fill="rgba(204,68,255,0.25)"/>
+          </svg>
+        </span>
+        MY LIBRARY
+      </div>
+      <div class="section-count" id="libCount">0</div>
+    </div>
+
+    <!-- Filter Bar Library -->
+    <div class="filter-bar" id="filterBarLib">
+      <button class="filter-btn active" onclick="setFilter('library','ALL',this)">Όλες</button>
+      <button class="filter-btn" onclick="setFilter('library','PS1',this)">PS1</button>
+      <button class="filter-btn" onclick="setFilter('library','PS2',this)">PS2</button>
+      <button class="filter-btn" onclick="setFilter('library','PS3',this)">PS3</button>
+      <button class="filter-btn" onclick="setFilter('library','PS4',this)">PS4</button>
+      <button class="filter-btn" onclick="setFilter('library','PS5',this)">PS5</button>
+      <button class="filter-btn" onclick="setFilter('library','Retail',this)">Retail</button>
+      <button class="filter-btn" onclick="setFilter('library','Digital',this)">Digital</button>
+      <button class="filter-btn" onclick="setFilter('library','Both',this)">Both</button>
+    </div>
+
+    <div class="games-grid" id="libraryGrid"></div>
+    <div id="libraryShowMore" style="display:none;justify-content:center;margin-top:1rem;margin-bottom:0.5rem;">
+      <button onclick="toggleShowMore('library')" style="background:rgba(204,68,255,0.08);border:1px solid rgba(204,68,255,0.25);border-radius:20px;padding:0.5rem 2rem;color:var(--accent);font-family:'Exo 2',sans-serif;font-weight:700;font-size:0.85rem;letter-spacing:0.1em;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;" onmouseover="this.style.background='rgba(204,68,255,0.18)'" onmouseout="this.style.background='rgba(204,68,255,0.08)'">▼ SHOW MORE</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- WISHLIST SECTION -->
+    <div class="section-header">
+      <div class="section-title">
+        <span class="section-icon">
+          <!-- PS controller + wishlist icon -->
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Controller body -->
+            <path d="M4 13 Q4 10 7 10 L11 10 L13 7 L19 7 L21 10 L25 10 Q28 10 28 13 L27 21 Q26.5 24 24 24 Q22 24 21 22 L11 22 Q10 24 8 24 Q5.5 24 5 21 Z" fill="rgba(20,0,30,0.9)" stroke="rgba(204,68,255,0.7)" stroke-width="1.3"/>
+            <!-- D-pad left side -->
+            <rect x="7" y="14.5" width="5" height="2" rx="0.5" fill="rgba(204,68,255,0.5)"/>
+            <rect x="9" y="12.5" width="2" height="6" rx="0.5" fill="rgba(204,68,255,0.5)"/>
+            <!-- PS symbols right side -->
+            <text x="18.5" y="15" font-size="3.5" fill="rgba(255,100,100,0.9)" font-family="sans-serif" font-weight="bold">△</text>
+            <text x="21.5" y="17.5" font-size="3.5" fill="rgba(100,180,255,0.9)" font-family="sans-serif">○</text>
+            <text x="18" y="20" font-size="3.5" fill="rgba(255,140,140,0.9)" font-family="sans-serif" font-weight="bold">✕</text>
+            <text x="15" y="17.5" font-size="3.5" fill="rgba(180,180,255,0.9)" font-family="sans-serif">□</text>
+            <!-- Wishlist star -->
+            <path d="M16 3 L16.9 5.8 L19.9 5.8 L17.5 7.5 L18.4 10.3 L16 8.6 L13.6 10.3 L14.5 7.5 L12.1 5.8 L15.1 5.8 Z" fill="rgba(255,215,0,0.85)" stroke="rgba(255,215,0,0.4)" stroke-width="0.5"/>
+            <!-- Analog sticks -->
+            <circle cx="11" cy="20" r="2" fill="rgba(136,0,204,0.4)" stroke="rgba(204,68,255,0.5)" stroke-width="0.8"/>
+            <circle cx="19" cy="20" r="2" fill="rgba(136,0,204,0.4)" stroke="rgba(204,68,255,0.5)" stroke-width="0.8"/>
+            <!-- Touchpad -->
+            <rect x="13.5" y="12" width="5" height="3.5" rx="1" fill="rgba(204,68,255,0.12)" stroke="rgba(204,68,255,0.35)" stroke-width="0.7"/>
+          </svg>
+        </span>
+        WISHLIST
+      </div>
+      <div class="section-count" id="wishCount">0</div>
+    </div>
+
+    <!-- Filter Bar Wishlist -->
+    <div class="filter-bar" id="filterBarWish">
+      <button class="filter-btn active" onclick="setFilter('wishlist','ALL',this)">Όλες</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS1',this)">PS1</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS2',this)">PS2</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS3',this)">PS3</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS4',this)">PS4</button>
+      <button class="filter-btn" onclick="setFilter('wishlist','PS5',this)">PS5</button>
+    </div>
+
+    <div class="games-grid" id="wishlistGrid"></div>
+    <div id="wishlistShowMore" style="display:none;justify-content:center;margin-top:1rem;margin-bottom:0.5rem;">
+      <button onclick="toggleShowMore('wishlist')" style="background:rgba(204,68,255,0.08);border:1px solid rgba(204,68,255,0.25);border-radius:20px;padding:0.5rem 2rem;color:var(--accent);font-family:'Exo 2',sans-serif;font-weight:700;font-size:0.85rem;letter-spacing:0.1em;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;" onmouseover="this.style.background='rgba(204,68,255,0.18)'" onmouseout="this.style.background='rgba(204,68,255,0.08)'">▼ SHOW MORE</button>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- FINISHED GAMES SECTION -->
+    <div class="section-header">
+      <div class="section-title">
+        <span class="section-icon">
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="26" height="26" rx="5" fill="rgba(136,0,204,0.18)" stroke="rgba(204,68,255,0.65)" stroke-width="1.4"/>
+            <path d="M8 15 L12.5 19.5 L22 10" stroke="rgba(204,68,255,0.95)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        FINISHED GAMES
+      </div>
+      <div class="section-count" id="finishedCount" style="border-color:rgba(204,68,255,0.35);color:var(--accent);">0</div>
+    </div>
+
+    <div class="filter-bar" id="filterBarFinished">
+      <button class="filter-btn active" onclick="setFilter('finished','ALL',this)">Όλα</button>
+      <button class="filter-btn" onclick="setFilter('finished','PS1',this)">PS1</button>
+      <button class="filter-btn" onclick="setFilter('finished','PS2',this)">PS2</button>
+      <button class="filter-btn" onclick="setFilter('finished','PS3',this)">PS3</button>
+      <button class="filter-btn" onclick="setFilter('finished','PS4',this)">PS4</button>
+      <button class="filter-btn" onclick="setFilter('finished','PS5',this)">PS5</button>
+      <button class="filter-btn" onclick="setFilter('finished','platinum',this)">🏆 Platinum</button>
+    </div>
+
+    <div class="games-grid" id="finishedGrid"></div>
+    <div id="finishedShowMore" style="display:none;justify-content:center;margin-top:1rem;margin-bottom:1rem;">
+      <button onclick="toggleShowMore('finished')" style="background:rgba(204,68,255,0.08);border:1px solid rgba(204,68,255,0.25);border-radius:20px;padding:0.5rem 2rem;color:var(--accent);font-family:'Exo 2',sans-serif;font-weight:700;font-size:0.85rem;letter-spacing:0.1em;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;" onmouseover="this.style.background='rgba(204,68,255,0.18)'" onmouseout="this.style.background='rgba(204,68,255,0.08)'">▼ SHOW MORE</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const USERS = { "vouts_jim@hotmail.com": "40294029" };
+const RAWG_KEY = "06542a2a4fce4b8bb90b97885d5d3cfd";
+
+// ============================================================
+// STATE
+// ============================================================
+let currentUser = null;
+let library = [];
+let wishlist = [];
+let finished = [];
+let selectedGame = null;
+let selectedGameWish = null;
+let cameraStream = null;
+let searchTimer = null;
+let activeFilterLib = 'ALL';
+let activeFilterWish = 'ALL';
+let activeFilterFinished = 'ALL';
+let addMode = 'library';
+let pendingFinishId = null;
+let pendingDeleteId = null;
+let pendingDeleteMode = null;
+let _lastResults = [];
+let pendingMoveId = null;
+
+// ============================================================
+// FIREBASE HELPERS
+// ============================================================
+function getDB() { return window._db || null; }
+function fs()    { return window._firestoreOps || null; }
+
+async function saveGame(entry, section) {
+  try {
+    const db = getDB(); const f = fs();
+    if (!db || !f) return;
+    const ref = f.doc(db, 'users', 'jimvouts', section, String(entry.id));
+    await f.setDoc(ref, entry);
+  } catch(e) { console.error('Firebase save error', e); showToast('❌ Σφάλμα αποθήκευσης!', true); }
+}
+
+async function deleteGameFromDB(id, section) {
+  try {
+    const db = getDB(); const f = fs();
+    if (!db || !f) return;
+    const ref = f.doc(db, 'users', 'jimvouts', section, String(id));
+    await f.deleteDoc(ref);
+  } catch(e) { console.error('Firebase delete error', e); }
+}
+
+async function loadData() {
+  try {
+    const db = getDB(); const f = fs();
+    if (!db || !f) throw new Error('Firebase not initialized');
+    const libSnap = await f.getDocs(f.collection(db, 'users', 'jimvouts', 'library'));
+    library = [];
+    libSnap.forEach(d => library.push(d.data()));
+    library.sort((a,b) => (b.id||0) - (a.id||0));
+
+    const wishSnap = await f.getDocs(f.collection(db, 'users', 'jimvouts', 'wishlist'));
+    wishlist = [];
+    wishSnap.forEach(d => wishlist.push(d.data()));
+    wishlist.sort((a,b) => (b.id||0) - (a.id||0));
+
+    const finSnap = await f.getDocs(f.collection(db, 'users', 'jimvouts', 'finished'));
+    finished = [];
+    finSnap.forEach(d => finished.push(d.data()));
+    finished.sort((a,b) => (b.finishedAt||'').localeCompare(a.finishedAt||''));
+    console.log('Loaded:', library.length, 'lib,', wishlist.length, 'wish,', finished.length, 'finished');
+  } catch(e) {
+    console.error('Firebase load error', e);
+    showToast('❌ Σφάλμα φόρτωσης: ' + e.message, true);
+    library = []; wishlist = []; finished = [];
+  }
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass  = document.getElementById('loginPassword').value;
+  const err   = document.getElementById('loginErr');
+  if (USERS[email] && USERS[email] === pass) {
+    currentUser = email;
+    err.style.display = 'none';
+    // Instant UI switch - most reliable across all browsers and iOS
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('navEmail').textContent = email;
+    const nem = document.getElementById('navEmailM'); if(nem) nem.textContent = email;
+    document.getElementById('libraryGrid').innerHTML  = '<div class="empty-state"><div class="loading-spin" style="width:32px;height:32px;border-width:3px;"></div><p>Φόρτωση δεδομένων...</p></div>';
+    document.getElementById('wishlistGrid').innerHTML = '<div class="empty-state"><p style="color:var(--muted);font-size:0.8rem;">...</p></div>';
+    document.getElementById('finishedGrid').innerHTML = '';
+    // Load data async - works even if Firebase fails (shows empty library)
+    setTimeout(doLoginAsync, 100);
+  } else {
+    err.style.display = 'block';
+  }
+}
+
+async function doLoginAsync() {
+  try {
+    // Initialize Firebase via dynamic import (works on all browsers incl iOS Safari)
+    if (!window._firebaseReady) {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+      const { getFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const firebaseConfig = {
+        apiKey: "AIzaSyAfQEo5fPjr6yxNayyX9wMOe9dB-8TmnIo",
+        authDomain: "jimvoutslab-52671.firebaseapp.com",
+        projectId: "jimvoutslab-52671",
+        storageBucket: "jimvoutslab-52671.firebasestorage.app",
+        messagingSenderId: "379377501874",
+        appId: "1:379377501874:web:84a6dea889560ad013ebab"
+      };
+      const app = initializeApp(firebaseConfig);
+      const db  = getFirestore(app);
+      window._db = db;
+      window._firestoreOps = { doc, getDoc, setDoc, collection, getDocs, deleteDoc };
+      window._firebaseReady = true;
+    }
+    await loadData();
+    renderAll();
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    showToast('❌ Σφάλμα σύνδεσης. Έλεγξε το internet και ανανέωσε.', true);
+    // Show retry button
+    document.getElementById('libraryGrid').innerHTML =
+      '<div class="empty-state"><div class="icon">📡</div><p>Αποτυχία σύνδεσης.<br>' +
+      '<button onclick="doLoginAsync()" style="margin-top:1rem;padding:0.5rem 1.5rem;background:rgba(204,68,255,0.2);border:1px solid var(--accent);border-radius:8px;color:var(--accent);cursor:pointer;font-family:Rajdhani,sans-serif;font-weight:700;">🔄 ΕΠΑΝΑΛΗΨΗ</button></p></div>';
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  library = []; wishlist = []; finished = [];
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('loginEmail').addEventListener('keydown',    e => { if(e.key==='Enter') doLogin(); });
+});
+
+// ============================================================
+// TABS
+// ============================================================
+function switchAddTab(mode) {
+  addMode = mode;
+  document.getElementById('tabLib').classList.toggle('active', mode==='library');
+  document.getElementById('tabWish').classList.toggle('active', mode==='wishlist');
+  document.getElementById('formLibrary').style.display  = mode==='library'  ? 'flex' : 'none';
+  document.getElementById('formWishlist').style.display = mode==='wishlist' ? 'flex' : 'none';
+  selectedGame = null; selectedGameWish = null;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchInputWish').value = '';
+  document.getElementById('searchResults').classList.remove('show');
+  document.getElementById('searchResultsWish').classList.remove('show');
+}
+
+// ============================================================
+// RAWG SEARCH
+// ============================================================
+async function rawgSearch(query) {
+  try {
+    const res  = await fetch('https://api.rawg.io/api/games?key=' + RAWG_KEY + '&search=' + encodeURIComponent(query) + '&page_size=8');
+    const data = await res.json();
+    return (data.results || []).map(g => ({
+      title: g.name,
+      cover: g.background_image,
+      year:  g.released ? g.released.substring(0,4) : '',
+      rawgId: g.id
+    }));
+  } catch(e) {
+    return [{ title: query, cover: null, year: '', rawgId: null }];
+  }
+}
+
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  const q = document.getElementById('searchInput').value.trim();
+  if (q.length < 2) { document.getElementById('searchResults').classList.remove('show'); return; }
+  searchTimer = setTimeout(() => doSearch(q, 'library'), 400);
+}
+function onSearchInputWish() {
+  clearTimeout(searchTimer);
+  const q = document.getElementById('searchInputWish').value.trim();
+  if (q.length < 2) { document.getElementById('searchResultsWish').classList.remove('show'); return; }
+  searchTimer = setTimeout(() => doSearch(q, 'wishlist'), 400);
+}
+
+async function doSearch(q, mode) {
+  const resEl = document.getElementById(mode==='library' ? 'searchResults' : 'searchResultsWish');
+  resEl.innerHTML = '<div class="search-item"><div class="loading-spin"></div> Αναζήτηση...</div>';
+  resEl.classList.add('show');
+  const results = await rawgSearch(q);
+  _lastResults = results;
+  if (!results.length) {
+    resEl.innerHTML = '<div class="search-item" style="color:var(--muted)">Δεν βρέθηκαν αποτελέσματα</div>';
+    return;
+  }
+  resEl.innerHTML = results.map((g, idx) => {
+    // Check if already in library or wishlist (case-insensitive title match)
+    const titleLow = g.title.toLowerCase();
+    const inLib  = library.some(x  => x.title.toLowerCase()  === titleLow);
+    const inWish = wishlist.some(x => x.title.toLowerCase() === titleLow);
+    let statusBadge = '';
+    if (inLib && inWish) {
+      statusBadge = '<span style="margin-left:auto;display:flex;gap:4px;flex-shrink:0;">' +
+        '<span style="background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.4);border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#00e676;letter-spacing:0.05em;">✓ LIB</span>' +
+        '<span style="background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.35);border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#ffd700;letter-spacing:0.05em;">✓ WISH</span>' +
+        '</span>';
+    } else if (inLib) {
+      statusBadge = '<span style="margin-left:auto;flex-shrink:0;background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.4);border-radius:4px;padding:1px 8px;font-size:0.65rem;font-weight:700;color:#00e676;letter-spacing:0.05em;">✓ LIBRARY</span>';
+    } else if (inWish) {
+      statusBadge = '<span style="margin-left:auto;flex-shrink:0;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.35);border-radius:4px;padding:1px 8px;font-size:0.65rem;font-weight:700;color:#ffd700;letter-spacing:0.05em;">✓ WISHLIST</span>';
+    }
+    return '<div class="search-item" data-idx="' + idx + '" data-mode="' + mode + '">' +
+      (g.cover ? '<img src="' + g.cover + '" alt="" loading="lazy">' :
+        '<div style="width:40px;height:56px;background:var(--bg3);border-radius:4px;flex-shrink:0;"></div>') +
+      '<div class="search-item-info" style="flex:1;min-width:0;">' +
+      '<div class="search-item-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + g.title + '</span>' +
+        statusBadge +
+      '</div>' +
+      (g.year ? '<div class="search-item-year">' + g.year + '</div>' : '') +
+      '</div></div>';
+  }).join('');
+  resEl.querySelectorAll('.search-item[data-idx]').forEach(el => {
+    el.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      const g = _lastResults[parseInt(this.getAttribute('data-idx'))];
+      const m = this.getAttribute('data-mode');
+      selectGame(g, m);
+    });
+  });
+}
+
+function selectGame(g, mode) {
+  if (!g) return;
+  if (mode === 'library') {
+    selectedGame = g;
+    document.getElementById('searchInput').value = g.title;
+    document.getElementById('searchResults').classList.remove('show');
+  } else {
+    selectedGameWish = g;
+    document.getElementById('searchInputWish').value = g.title;
+    document.getElementById('searchResultsWish').classList.remove('show');
+  }
+}
+
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('.search-wrap')) {
+    document.getElementById('searchResults').classList.remove('show');
+    document.getElementById('searchResultsWish').classList.remove('show');
+  }
+});
+
+// ============================================================
+// BARCODE
+// ============================================================
+async function openCamera() {
+  const modal = document.getElementById('cameraModal');
+  modal.style.display = 'flex';
+  // Attach close button listener fresh each time
+  document.getElementById('closeCameraBtn').onclick = closeCamera;
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    document.getElementById('cameraFeed').srcObject = cameraStream;
+    startBarcodeDetection();
+  } catch(e) {
+    document.getElementById('cameraFeed').style.display = 'none';
+  }
+}
+function closeCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  if (window.Quagga) try { Quagga.stop(); } catch(e) {}
+  document.getElementById('cameraModal').style.display = 'none';
+  document.getElementById('cameraFeed').style.display = 'block';
+}
+function startBarcodeDetection() {
+  if (!window.Quagga) return;
+  Quagga.init({
+    inputStream: { type:'LiveStream', target: document.getElementById('cameraFeed'), constraints:{ facingMode:'environment' } },
+    decoder: { readers:['ean_reader','ean_8_reader','upc_reader'] }
+  }, err => { if (!err) Quagga.start(); });
+  Quagga.onDetected(data => {
+    document.getElementById('manualBarcode').value = data.codeResult.code;
+    Quagga.stop();
+    searchByBarcode();
+  });
+}
+async function searchByBarcode() {
+  const barcode = document.getElementById('manualBarcode').value.trim();
+  if (!barcode) return;
+  showToast('🔍 Αναζήτηση barcode...');
+  let title = null;
+  try {
+    const res  = await fetch('https://api.upcitemdb.com/prod/trial/lookup?upc=' + barcode);
+    const data = await res.json();
+    if (data.items && data.items.length > 0) title = data.items[0].title;
+  } catch(e) {}
+  if (title) {
+    closeCamera();
+    document.getElementById('searchInput').value = title;
+    await doSearch(title, 'library');
+  } else {
+    showToast('❌ Δεν βρέθηκε το barcode. Δοκίμασε manual.', true);
+  }
+}
+
+// ============================================================
+// ADD GAME
+// ============================================================
+async function addGame(mode) {
+  const isLib = mode === 'library';
+  const game  = isLib ? selectedGame : selectedGameWish;
+  const titleInput  = document.getElementById(isLib ? 'searchInput' : 'searchInputWish');
+  const consoleSel  = document.getElementById(isLib ? 'consoleSelect' : 'consoleSelectWish');
+  const formatSel   = document.getElementById(isLib ? 'formatSelect' : 'formatSelectWish');
+  const title = (game ? game.title : titleInput.value).trim();
+  if (!title) { showToast('⚠️ Βάλε τίτλο παιχνιδιού!', true); return; }
+  const console_ = consoleSel.value;
+  const format   = isLib ? formatSel.value : null;
+  const price    = isLib ? (parseFloat(document.getElementById('priceInput').value) || null) : null;
+  const cover    = game ? game.cover : null;
+  const list     = isLib ? library : wishlist;
+  if (list.some(g => g.title.toLowerCase() === title.toLowerCase() && g.console === console_)) {
+    showDuplicate(title, console_, mode); return;
+  }
+  const entry = { id: Date.now(), title, cover, console: console_, format: isLib ? format : 'Wishlist', price, addedAt: new Date().toISOString() };
+  if (isLib) library.unshift(entry); else wishlist.unshift(entry);
+  await saveGame(entry, isLib ? 'library' : 'wishlist');
+  renderAll();
+  showToast('✅ "' + title + '" προστέθηκε ' + (isLib ? 'στη Library' : 'στο Wishlist') + '!');
+  titleInput.value = '';
+  if (isLib) { selectedGame = null; document.getElementById('priceInput').value = ''; }
+  else selectedGameWish = null;
+}
+
+function showDuplicate(title, console_, mode) {
+  const ban = document.getElementById('dupBanner');
+  document.getElementById('dupMsg').textContent = 'Το "' + title + '" (' + console_ + ') υπάρχει ήδη ' + (mode==='library'?'στη Library':'στο Wishlist') + ' σου!';
+  ban.classList.add('show');
+  setTimeout(() => ban.classList.remove('show'), 3500);
+}
+
+// ============================================================
+// DELETE (with confirm)
+// ============================================================
+function deleteGame(id, mode) {
+  const list = mode==='library' ? library : (mode==='wishlist' ? wishlist : finished);
+  const game = list.find(g => g.id === id);
+  const name = game ? game.title : 'αυτό το παιχνίδι';
+  pendingDeleteId   = id;
+  pendingDeleteMode = mode;
+  document.getElementById('confirmMsg').innerHTML =
+    'Είσαι σίγουρος ότι θέλεις να διαγράψεις<br><strong style="color:var(--text)">"' + name + '"</strong><br>από ' +
+    (mode==='library'?'τη Library':mode==='wishlist'?'το Wishlist':'τα Finished Games') + ';';
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.remove('show');
+  pendingDeleteId = null; pendingDeleteMode = null;
+  // Reset confirm button to default delete action
+  const btn = document.getElementById('confirmYesBtn');
+  if (btn) { btn.textContent = 'ΔΙΑΓΡΑΦΗ'; btn.onclick = doDeleteGame; }
+  const editBtn = document.getElementById('confirmEditBtn');
+  if (editBtn) editBtn.style.display = 'none';
+}
+async function doDeleteGame() {
+  if (!pendingDeleteId) return;
+  const id = pendingDeleteId; const mode = pendingDeleteMode;
+  closeConfirm();
+  if (mode==='library')   library  = library.filter(g => g.id !== id);
+  else if (mode==='wishlist') wishlist = wishlist.filter(g => g.id !== id);
+  else finished = finished.filter(g => g.id !== id);
+  await deleteGameFromDB(id, mode);
+  renderAll();
+  showToast('🗑️ Διαγράφηκε!');
+}
+
+// ============================================================
+// FINISHED GAMES
+// ============================================================
+function openFinishModal(id) {
+  const game = library.find(g => g.id === id);
+  if (!game) return;
+  const existing = finished.find(f => f.sourceId === id);
+  if (existing) {
+    // Already finished - show options: edit or remove
+    pendingDeleteId   = existing.id;
+    pendingDeleteMode = 'finished';
+    document.getElementById('confirmMsg').innerHTML =
+      '⚡ Το <strong style="color:var(--text)">"' + game.title + '"</strong> είναι ήδη στα Finished.<br><br>' +
+      '<span style="font-size:0.85rem;color:var(--muted)">Θέλεις να το επεξεργαστείς ή να το αφαιρέσεις από τα Finished;</span>';
+    document.getElementById('confirmYesBtn').textContent = 'ΑΦΑΙΡΕΣΗ';
+    document.getElementById('confirmYesBtn').onclick = () => doDeleteGame();
+    // Add edit button dynamically
+    const editBtn = document.getElementById('confirmEditBtn');
+    if (editBtn) editBtn.style.display = 'inline-block';
+    window._pendingEditId = id;
+    document.getElementById('confirmModal').classList.add('show');
+  } else {
+    pendingFinishId = id;
+    document.getElementById('finishGameName').textContent = '🎮 ' + game.title;
+    document.getElementById('platinumCheck').checked = false;
+    document.getElementById('finishModal').classList.add('show');
+  }
+}
+
+function openEditFinish(id) {
+  closeConfirm();
+  const game = library.find(g => g.id === id);
+  if (!game) return;
+  pendingFinishId = id;
+  document.getElementById('finishGameName').textContent = '🎮 ' + game.title;
+  const existing = finished.find(f => f.sourceId === id);
+  document.getElementById('platinumCheck').checked = existing ? (existing.platinum || false) : false;
+  document.getElementById('finishModal').classList.add('show');
+}
+function closeFinishModal() {
+  document.getElementById('finishModal').classList.remove('show');
+  pendingFinishId = null;
+}
+async function saveFinished() {
+  if (!pendingFinishId) return;
+  const game     = library.find(g => g.id === pendingFinishId);
+  if (!game) return;
+  const platinum = document.getElementById('platinumCheck').checked;
+  const existing = finished.find(f => f.sourceId === pendingFinishId);
+  if (existing) {
+    existing.platinum   = platinum;
+    existing.finishedAt = new Date().toISOString();
+    await saveGame(existing, 'finished');
+  } else {
+    const entry = { id: Date.now(), sourceId: pendingFinishId, title: game.title, cover: game.cover, console: game.console, format: game.format, price: game.price, platinum, finishedAt: new Date().toISOString() };
+    finished.unshift(entry);
+    await saveGame(entry, 'finished');
+  }
+  closeFinishModal();
+  renderAll();
+  showToast(platinum ? '🏆 Platinum καταχωρήθηκε!' : '✅ Παιχνίδι ολοκληρώθηκε!');
+}
+async function togglePlatinum(id) {
+  const game = finished.find(g => g.id === id);
+  if (!game) return;
+  game.platinum = !game.platinum;
+  await saveGame(game, 'finished');
+  renderGrid('finished');
+  showToast(game.platinum ? '🏆 Platinum ενεργοποιήθηκε!' : '↩️ Platinum απενεργοποιήθηκε!');
+}
+
+// ============================================================
+// HLTB GAME INFO
+// ============================================================
+async function openGameInfo(title) {
+  document.getElementById('gameInfoTitle').textContent = '🕐 ' + title;
+  document.getElementById('gameInfoBody').innerHTML =
+    '<div style="display:flex;align-items:center;gap:0.8rem;color:var(--muted);font-size:0.9rem;"><div class="loading-spin" style="width:20px;height:20px;border-width:2px;"></div>Αναζήτηση στο HowLongToBeat...</div>';
+  document.getElementById('gameInfoModal').classList.add('show');
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 400,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: 'Search HowLongToBeat for the game "' + title + '" and return ONLY a JSON object (no markdown, no extra text) with: mainStory, mainExtra, completionist, platinum. Use strings like "12 Hours" or null.' }]
+      })
+    });
+    const data = await response.json();
+    const text  = (data.content||[]).filter(b => b.type==='text').map(b => b.text).join('');
+    const clean = text.replace(/```json|```/g,'').trim();
+    const info  = JSON.parse(clean);
+    renderHLTB(info, title);
+  } catch(e) {
+    document.getElementById('gameInfoBody').innerHTML =
+      '<div style="color:var(--muted);font-size:0.9rem;text-align:center;padding:1rem;">' +
+      '<div style="font-size:1.5rem;margin-bottom:0.5rem;">🔍</div>Δεν ήταν δυνατή η αυτόματη ανάκτηση.<br>' +
+      '<a href="https://howlongtobeat.com/?q=' + encodeURIComponent(title) + '" target="_blank" style="color:var(--accent);text-decoration:none;margin-top:0.5rem;display:inline-block;">🔗 Άνοιξε το HowLongToBeat</a></div>';
+  }
+}
+function renderHLTB(info, title) {
+  const rows = [
+    { icon:'🗡️', label:'Main Story',          val: info.mainStory },
+    { icon:'⚔️', label:'Main + Extra',         val: info.mainExtra },
+    { icon:'💯', label:'Completionist',         val: info.completionist },
+    { icon:'🏆', label:'Platinum / All Trophies', val: info.platinum },
+  ].filter(r => r.val && r.val !== 'null');
+  document.getElementById('gameInfoBody').innerHTML = rows.length
+    ? rows.map(r => '<div class="hltb-row"><div class="hltb-label">' + r.icon + ' ' + r.label + '</div><div class="hltb-value">' + r.val + '</div></div>').join('')
+    : '<div style="color:var(--muted);text-align:center;padding:1rem;">Δεν βρέθηκαν δεδομένα.<br><a href="https://howlongtobeat.com/?q=' + encodeURIComponent(title) + '" target="_blank" style="color:var(--accent);">🔗 HowLongToBeat</a></div>';
+}
+function closeGameInfo() { document.getElementById('gameInfoModal').classList.remove('show'); }
+
+// ============================================================
+// FILTER
+// ============================================================
+function setFilter(section, val, btn) {
+  if (section==='library')        { activeFilterLib      = val; document.querySelectorAll('#filterBarLib .filter-btn').forEach(b=>b.classList.remove('active')); }
+  else if (section==='wishlist')  { activeFilterWish     = val; document.querySelectorAll('#filterBarWish .filter-btn').forEach(b=>b.classList.remove('active')); }
+  else                            { activeFilterFinished = val; document.querySelectorAll('#filterBarFinished .filter-btn').forEach(b=>b.classList.remove('active')); }
+  btn.classList.add('active');
+  renderGrid(section);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll() {
+  renderGrid('library');
+  renderGrid('wishlist');
+  renderGrid('finished');
+  updateStats();
+}
+
+function renderGrid(section) {
+  const isLib  = section==='library';
+  const isWish = section==='wishlist';
+  const isFin  = section==='finished';
+  const list   = isLib ? library : (isWish ? wishlist : finished);
+  const filter = isLib ? activeFilterLib : (isWish ? activeFilterWish : activeFilterFinished);
+  const gridEl  = document.getElementById(isLib ? 'libraryGrid' : (isWish ? 'wishlistGrid' : 'finishedGrid'));
+  const countEl = document.getElementById(isLib ? 'libCount'    : (isWish ? 'wishCount'    : 'finishedCount'));
+
+  let filtered = list;
+  if (filter === 'platinum') filtered = list.filter(g => g.platinum);
+  else if (filter !== 'ALL') filtered = list.filter(g => g.console===filter || g.format===filter);
+
+  countEl.textContent = filtered.length;
+
+  if (!filtered.length) {
+    const icon = isLib ? '🎮' : (isWish ? '⭐' : '✅');
+    const msg  = isLib ? 'Η library σου είναι άδεια.<br>Πρόσθεσε το πρώτο σου παιχνίδι!'
+                       : (isWish ? 'Το wishlist σου είναι άδειο.' : 'Κανένα ολοκληρωμένο παιχνίδι ακόμα.');
+    gridEl.innerHTML = '<div class="empty-state"><div class="icon">' + icon + '</div><p>' + msg + '</p></div>';
+    return;
+  }
+
+  // Calculate cards per row based on viewport width
+  const colW = window.innerWidth >= 768 ? 180 : 160;
+  const gap   = 19;
+  const gridW = gridEl.parentElement ? gridEl.parentElement.offsetWidth - 64 : window.innerWidth - 64;
+  const cols  = Math.max(2, Math.floor((gridW + gap) / (colW + gap)));
+  const SHOW  = cols * 3; // 3 rows
+
+  const isExpanded = gridEl.dataset.expanded === 'true';
+  const visible    = (!isExpanded && filtered.length > SHOW) ? filtered.slice(0, SHOW) : filtered;
+  const hasMore    = filtered.length > SHOW;
+
+  gridEl.innerHTML = visible.map(g => buildCard(g, section)).join('');
+
+  // Show More / Show Less button
+  const btnWrap = document.getElementById(section + 'ShowMore');
+  if (btnWrap) {
+    if (hasMore) {
+      btnWrap.style.display = 'flex';
+      const btn = btnWrap.querySelector('button');
+      if (btn) {
+        btn.textContent = isExpanded
+          ? '▲ SHOW LESS'
+          : '▼ SHOW MORE (' + (filtered.length - SHOW) + ' more)';
+      }
+    } else {
+      btnWrap.style.display = 'none';
+    }
+  }
+}
+
+function toggleShowMore(section) {
+  const gridEl = document.getElementById(
+    section==='library' ? 'libraryGrid' : (section==='wishlist' ? 'wishlistGrid' : 'finishedGrid')
+  );
+  gridEl.dataset.expanded = gridEl.dataset.expanded === 'true' ? 'false' : 'true';
+  renderGrid(section);
+}
+
+// Platinum trophy SVG - Accurate PS Platinum Trophy recreation
+const platSVG = `<svg width="16" height="16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;flex-shrink:0">
+<defs>
+  <radialGradient id="sph" cx="38%" cy="35%" r="60%">
+    <stop offset="0%" stop-color="#ffffff"/>
+    <stop offset="40%" stop-color="#dde8f5"/>
+    <stop offset="100%" stop-color="#8899bb"/>
+  </radialGradient>
+  <linearGradient id="stm" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#c8d8ee"/><stop offset="100%" stop-color="#8899aa"/>
+  </linearGradient>
+</defs>
+<ellipse cx="50" cy="96" rx="18" ry="4" fill="rgba(100,140,200,0.2)"/>
+<rect x="43" y="80" width="14" height="14" rx="3" fill="url(#stm)"/>
+<rect x="38" y="91" width="24" height="5" rx="2.5" fill="url(#stm)" opacity="0.9"/>
+<path d="M18 45 Q10 35 14 22 Q18 12 28 18" stroke="#2255cc" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M82 45 Q90 35 86 22 Q82 12 72 18" stroke="#2255cc" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M22 65 Q12 58 16 48" stroke="#3366dd" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.7"/>
+<path d="M78 65 Q88 58 84 48" stroke="#3366dd" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.7"/>
+<circle cx="50" cy="42" r="28" fill="url(#sph)"/>
+<circle cx="50" cy="42" r="28" fill="none" stroke="#aabbdd" stroke-width="1.5" opacity="0.6"/>
+<text x="50" y="38" text-anchor="middle" font-size="9" fill="#445577" opacity="0.7" font-family="sans-serif">▪ △</text>
+<text x="50" y="50" text-anchor="middle" font-size="9" fill="#445577" opacity="0.7" font-family="sans-serif">✕ ○</text>
+<ellipse cx="42" cy="34" rx="8" ry="5" fill="white" opacity="0.45"/>
+</svg>`;
+
+// Larger version for card overlay - full detail with glow effects
+const platSVGLarge = `<svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <radialGradient id="sphL" cx="35%" cy="30%" r="65%">
+    <stop offset="0%" stop-color="#ffffff"/>
+    <stop offset="30%" stop-color="#eef4ff"/>
+    <stop offset="65%" stop-color="#c8d8f0"/>
+    <stop offset="100%" stop-color="#7a90b8"/>
+  </radialGradient>
+  <linearGradient id="stmL" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#d8e8f8"/>
+    <stop offset="100%" stop-color="#8899bb"/>
+  </linearGradient>
+  <linearGradient id="ribL" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#4488ff"/>
+    <stop offset="50%" stop-color="#2255cc"/>
+    <stop offset="100%" stop-color="#1133aa"/>
+  </linearGradient>
+  <filter id="glowL">
+    <feGaussianBlur stdDeviation="2" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="sphereGlow">
+    <feGaussianBlur stdDeviation="3" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+<!-- Shadow -->
+<ellipse cx="50" cy="97" rx="20" ry="4" fill="rgba(50,80,180,0.2)"/>
+<!-- Base plate -->
+<rect x="38" y="91" width="24" height="5.5" rx="2.8" fill="url(#stmL)" opacity="0.95"/>
+<!-- Stem -->
+<rect x="43" y="78" width="14" height="14" rx="3" fill="url(#stmL)"/>
+<rect x="45" y="78" width="4" height="14" fill="white" opacity="0.12" rx="2"/>
+<!-- Blue ribbon left - top curl -->
+<path d="M20 48 Q8 36 12 20 Q16 8 28 14 Q24 28 32 38" fill="url(#ribL)" opacity="0.9" filter="url(#glowL)"/>
+<!-- Blue ribbon left - bottom curl -->
+<path d="M22 68 Q10 60 14 50 Q18 42 26 46 Q22 56 30 62" fill="url(#ribL)" opacity="0.8"/>
+<!-- Blue ribbon right - top curl -->
+<path d="M80 48 Q92 36 88 20 Q84 8 72 14 Q76 28 68 38" fill="url(#ribL)" opacity="0.9" filter="url(#glowL)"/>
+<!-- Blue ribbon right - bottom curl -->
+<path d="M78 68 Q90 60 86 50 Q82 42 74 46 Q78 56 70 62" fill="url(#ribL)" opacity="0.8"/>
+<!-- Ribbon shine -->
+<path d="M16 22 Q20 14 27 16" stroke="rgba(180,210,255,0.6)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+<path d="M84 22 Q80 14 73 16" stroke="rgba(180,210,255,0.6)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+<!-- Sphere -->
+<circle cx="50" cy="42" r="30" fill="url(#sphL)" filter="url(#sphereGlow)"/>
+<circle cx="50" cy="42" r="30" fill="none" stroke="#b8ccee" stroke-width="1.5" opacity="0.5"/>
+<!-- PS symbols on sphere -->
+<text x="44" y="39" text-anchor="middle" font-size="10" fill="#334466" opacity="0.75" font-family="sans-serif" font-weight="bold">▪ △</text>
+<text x="56" y="39" text-anchor="middle" font-size="10" fill="#334466" opacity="0.75" font-family="sans-serif" font-weight="bold"></text>
+<text x="44" y="51" text-anchor="middle" font-size="10" fill="#334466" opacity="0.75" font-family="sans-serif" font-weight="bold">✕ ○</text>
+<!-- Sphere highlight -->
+<ellipse cx="40" cy="32" rx="10" ry="7" fill="white" opacity="0.5"/>
+<ellipse cx="38" cy="30" rx="5" ry="3" fill="white" opacity="0.7"/>
+<!-- Sphere rim light -->
+<path d="M25 52 Q22 42 28 33" stroke="rgba(200,220,255,0.4)" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>`;
+
+function buildCard(g, section) {
+  const isLib  = section === 'library';
+  const isWish = section === 'wishlist';
+  const isFin  = section === 'finished';
+
+  const consoleBadgeClass = {PS1:'badge-ps1',PS2:'badge-ps2',PS3:'badge-ps3',PS4:'badge-ps4',PS5:'badge-ps5'}[g.console] || 'badge-console';
+  const fmt = g.format || 'Retail';
+
+  let formatBadge = '';
+  if (isLib)       formatBadge = `<span class="badge badge-${fmt.toLowerCase()}">${fmt}</span>`;
+  else if (isWish) formatBadge = `<span class="badge badge-wishlist">⭐ Wishlist</span>`;
+  else if (isFin) {
+    formatBadge = `<span class="badge badge-finished">✅ Finished</span>`;
+    if (g.platinum) formatBadge += ` <span class="badge badge-platinum">${platSVG} Platinum</span>`;
+  }
+
+  const platOverlay = (isFin && g.platinum)
+    ? `<div class="plat-overlay">${platSVGLarge}</div>` : '';
+
+  let coverHTML = '';
+  if (g.cover) {
+    const safeTitle = g.title.replace(/"/g, '');
+    coverHTML  = `<img class="card-cover" src="${g.cover}" alt="${safeTitle}" loading="lazy" `;
+    coverHTML += `onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`;
+    coverHTML += `<div class="card-cover-placeholder" style="display:none;">🎮<span>${g.title}</span></div>`;
+    coverHTML += platOverlay;
+  } else {
+    coverHTML = `<div class="card-cover-placeholder">🎮<span>${g.title}</span></div>`;
+    coverHTML += platOverlay;
+  }
+
+  const safeTitle2 = g.title.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const isFinished = isLib && finished.some(f => f.sourceId === g.id);
+
+  let actions = '';
+  if (isLib) {
+    actions = `<div class="card-actions">
+      <button class="btn-card-action btn-card-info" onclick="event.stopPropagation();openGameInfo('${safeTitle2}')" title="HowLongToBeat">🕐</button>
+      <button class="btn-card-action btn-card-finish" onclick="event.stopPropagation();openFinishModal(${g.id})" title="${isFinished ? 'Επεξεργασία' : 'Σημείωση ως Finished'}" style="${isFinished ? 'color:var(--success);border-color:var(--success);' : ''}">${isFinished ? '✅' : '🏁'}</button>
+      <button class="btn-card-action btn-card-delete" onclick="event.stopPropagation();deleteGame(${g.id},'library')" title="Διαγραφή">✕</button>
+    </div>`;
+  } else if (isWish) {
+    actions = `<div class="card-actions">
+      <button class="btn-card-action btn-card-info" onclick="event.stopPropagation();openGameInfo('${safeTitle2}')" title="HowLongToBeat">🕐</button>
+      <button class="btn-card-action btn-card-move" onclick="event.stopPropagation();openMoveToLibrary(${g.id})" title="Μεταφορά στη Library" style="color:#00e676;border-color:rgba(0,230,118,0.4);">🛒</button>
+      <button class="btn-card-action btn-card-delete" onclick="event.stopPropagation();deleteGame(${g.id},'wishlist')" title="Διαγραφή">✕</button>
+    </div>`;
+  } else if (isFin) {
+    actions = `<div class="card-actions">
+      <button class="btn-card-action" onclick="event.stopPropagation();togglePlatinum(${g.id})" title="${g.platinum ? 'Αφαίρεση Platinum' : 'Προσθήκη Platinum'}" style="${g.platinum ? 'color:#c8c8ff;border-color:rgba(200,200,255,0.6);' : ''}">${platSVG}</button>
+      <button class="btn-card-action btn-card-delete" onclick="event.stopPropagation();deleteGame(${g.id},'finished')" title="Διαγραφή">✕</button>
+    </div>`;
+  }
+
+  const priceHTML = (g.price != null && g.price !== '') ? `<div class="card-price">€${parseFloat(g.price).toFixed(2)}</div>` : '';
+
+  return `<div class="game-card">
+    ${actions}
+    ${coverHTML}
+    <div class="card-info">
+      <div class="card-title">${g.title}</div>
+      <div class="card-meta">
+        <span class="badge badge-console ${consoleBadgeClass}">${g.console}</span>
+        ${formatBadge}
+      </div>
+      ${priceHTML}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// MOVE WISHLIST → LIBRARY
+// ============================================================
+function openMoveToLibrary(id) {
+  const game = wishlist.find(g => g.id === id);
+  if (!game) return;
+  pendingMoveId = id;
+  document.getElementById('moveGameName').textContent = '🛒 ' + game.title;
+  document.getElementById('movePriceInput').value = '';
+  document.getElementById('moveConsoleVal').textContent = game.console;
+  document.getElementById('moveModal').classList.add('show');
+}
+function closeMoveModal() {
+  document.getElementById('moveModal').classList.remove('show');
+  pendingMoveId = null;
+}
+async function doMoveToLibrary() {
+  if (!pendingMoveId) return;
+  const game  = wishlist.find(g => g.id === pendingMoveId);
+  if (!game) return;
+  const price = parseFloat(document.getElementById('movePriceInput').value) || null;
+  const fmt   = document.getElementById('moveFormatSelect').value;
+
+  // Check duplicate in library
+  if (library.some(g => g.title.toLowerCase()===game.title.toLowerCase() && g.console===game.console)) {
+    showToast('⚠️ Υπάρχει ήδη στη Library!', true);
+    closeMoveModal();
+    return;
+  }
+
+  // Add to library
+  const entry = { id: Date.now(), title: game.title, cover: game.cover, console: game.console, format: fmt, price, addedAt: new Date().toISOString() };
+  library.unshift(entry);
+  await saveGame(entry, 'library');
+
+  // Remove from wishlist
+  wishlist = wishlist.filter(g => g.id !== pendingMoveId);
+  await deleteGameFromDB(pendingMoveId, 'wishlist');
+
+  closeMoveModal();
+  renderAll();
+  showToast('✅ "' + game.title + '" μεταφέρθηκε στη Library!');
+}
+
+function toggleNavDrawer() {
+  const drawer = document.getElementById('navDrawer');
+  const btn    = document.getElementById('navHamburger');
+  const isOpen = drawer.classList.contains('open');
+  drawer.classList.toggle('open');
+  btn.classList.toggle('open');
+  // Sync mobile drawer stats when opening
+  if (!isOpen) syncDrawerStats();
+}
+
+function syncDrawerStats() {
+  const totalVal = library.filter(g => g.price != null && g.price !== '').reduce((s,g) => s + parseFloat(g.price||0), 0);
+  const m = {
+    statLibM: library.length,
+    statWishM: wishlist.length,
+    statFinM: finished.length,
+    statValM: '€' + totalVal.toFixed(2),
+    navEmailM: currentUser || ''
+  };
+  Object.entries(m).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  });
+}
+
+// Close drawer when clicking outside
+document.addEventListener('click', e => {
+  const drawer = document.getElementById('navDrawer');
+  const btn    = document.getElementById('navHamburger');
+  if (drawer && btn && !drawer.contains(e.target) && !btn.contains(e.target)) {
+    drawer.classList.remove('open');
+    btn.classList.remove('open');
+  }
+});
+
+function updateStats() {
+  document.getElementById('statLib').textContent      = library.length;
+  document.getElementById('statWish').textContent     = wishlist.length;
+  document.getElementById('statFinished').textContent = finished.length;
+  const totalVal = library.filter(g => g.price != null && g.price !== '').reduce((s,g) => s + parseFloat(g.price||0), 0);
+  document.getElementById('statValue').textContent    = '€' + totalVal.toFixed(2);
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+
+<!-- CONFIRM DELETE MODAL -->
+<div class="modal-overlay" id="confirmModal" onclick="if(event.target===this)closeConfirm()">
+  <div class="modal" style="max-width:360px;text-align:center;gap:1.5rem;">
+    <div class="modal-title" style="color:var(--danger);justify-content:center;display:flex;align-items:center;gap:0.5rem;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      ΕΠΙΒΕΒΑΙΩΣΗ ΔΙΑΓΡΑΦΗΣ
+    </div>
+    <div id="confirmMsg" style="font-size:0.95rem;color:var(--text);line-height:1.5;"></div>
+    <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;">
+      <button class="btn-close" onclick="closeConfirm()" style="align-self:auto;">ΑΚΥΡΟ</button>
+      <button id="confirmEditBtn" onclick="openEditFinish(window._pendingEditId)" style="display:none;background:rgba(204,68,255,0.15);border:1px solid rgba(204,68,255,0.5);border-radius:8px;padding:0.5rem 1.5rem;color:var(--accent);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;">ΕΠΕΞΕΡΓΑΣΙΑ</button>
+      <button id="confirmYesBtn" onclick="doDeleteGame()" style="background:rgba(255,59,92,0.2);border:1px solid rgba(255,59,92,0.6);border-radius:8px;padding:0.5rem 1.5rem;color:var(--danger);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;" onmouseover="this.style.background='rgba(255,59,92,0.35)'" onmouseout="this.style.background='rgba(255,59,92,0.2)'">ΔΙΑΓΡΑΦΗ</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME INFO MODAL (HowLongToBeat) -->
+<div class="modal-overlay" id="gameInfoModal" onclick="if(event.target===this)closeGameInfo()">
+  <div class="modal" style="max-width:420px;gap:1.2rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="modal-title" id="gameInfoTitle" style="font-size:1.1rem;"></div>
+      <button class="btn-close" onclick="closeGameInfo()" style="align-self:auto;padding:0.3rem 0.8rem;font-size:0.8rem;">✕</button>
+    </div>
+    <div id="gameInfoBody" style="display:flex;flex-direction:column;gap:0.8rem;"></div>
+    <div style="font-size:0.7rem;color:var(--muted);text-align:center;opacity:0.6;">Δεδομένα από HowLongToBeat.com</div>
+  </div>
+</div>
+
+<!-- FINISHED / PLATINUM MODAL -->
+<div class="modal-overlay" id="finishModal" onclick="if(event.target===this)closeFinishModal()">
+  <div class="modal" style="max-width:380px;gap:1.2rem;">
+    <div class="modal-title" style="color:var(--success);display:flex;align-items:center;gap:0.5rem;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      ΚΑΤΑΧΩΡΗΣΗ ΟΛΟΚΛΗΡΩΣΗΣ
+    </div>
+    <div id="finishGameName" style="font-size:0.95rem;color:var(--muted);"></div>
+    <label style="display:flex;align-items:center;gap:0.8rem;cursor:pointer;padding:0.8rem;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.2);border-radius:8px;">
+      <input type="checkbox" id="platinumCheck" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;">
+      <span style="display:flex;align-items:center;gap:0.5rem;font-size:0.95rem;">
+        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="platMod" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ffffff"/><stop offset="35%" stop-color="#ede5ff"/>
+              <stop offset="70%" stop-color="#c8b8f0"/><stop offset="100%" stop-color="#a08ad4"/>
+            </linearGradient>
+            <linearGradient id="platModBase" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#d4c8f0"/><stop offset="100%" stop-color="#8870c0"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="24" cy="45" rx="11" ry="2.5" fill="rgba(150,120,220,0.25)"/>
+          <rect x="15" y="41" width="18" height="3.5" rx="1.8" fill="url(#platModBase)" opacity="0.9"/>
+          <rect x="18" y="35" width="12" height="7" rx="2" fill="url(#platModBase)"/>
+          <path d="M12 8 Q12 4 24 4 Q36 4 36 8 L33.5 22 Q31 33 24 33 Q17 33 14.5 22 Z" fill="url(#platMod)"/>
+          <path d="M17 10 Q17 7 24 7 Q31 7 31 10 L29.2 21 Q27.5 30 24 30 Q20.5 30 18.8 21 Z" fill="white" opacity="0.2"/>
+          <ellipse cx="24" cy="10" rx="7" ry="2.5" fill="white" opacity="0.35"/>
+          <path d="M12 14 Q6 14 6 20 Q6 26 12 26" stroke="url(#platMod)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M36 14 Q42 14 42 20 Q42 26 36 26" stroke="url(#platMod)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M18 13 Q24 10 30 13" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+        Platinum Trophy
+      </span>
+    </label>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;">
+      <button class="btn-close" onclick="closeFinishModal()" style="align-self:auto;">ΑΚΥΡΟ</button>
+      <button onclick="saveFinished()" style="background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.5);border-radius:8px;padding:0.5rem 1.5rem;color:var(--success);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;" onmouseover="this.style.background='rgba(0,230,118,0.28)'" onmouseout="this.style.background='rgba(0,230,118,0.15)'">ΑΠΟΘΗΚΕΥΣΗ</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ============================================================
+// CYBERPUNK BACKGROUND CANVAS
+// ============================================================
+(function() {
+  const canvas = document.getElementById('bgCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // --- PARTICLES ---
+  const PARTICLE_COUNT = 90;
+  const particles = [];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const big = Math.random() < 0.12;
+    particles.push({
+      x:    Math.random() * window.innerWidth,
+      y:    Math.random() * window.innerHeight,
+      r:    big ? Math.random() * 2.5 + 1.5 : Math.random() * 1.4 + 0.4,
+      vx:   (Math.random() - 0.5) * 0.45,
+      vy:   (Math.random() - 0.5) * 0.45,
+      life: Math.random(),
+      speed: Math.random() * 0.005 + 0.002,
+      hue:  Math.random() < 0.55 ? 270 : (Math.random() < 0.5 ? 200 : 300),
+      big,
+    });
+  }
+
+  // --- ENERGY LINES ---
+  const LINE_COUNT = 14;
+  const lines = [];
+  for (let i = 0; i < LINE_COUNT; i++) {
+    const l = makeEnergyLine();
+    l.progress = Math.random(); // stagger starts
+    lines.push(l);
+  }
+  function makeEnergyLine() {
+    const horiz = Math.random() > 0.5;
+    return {
+      horiz,
+      pos:      horiz ? Math.random() * window.innerHeight : Math.random() * window.innerWidth,
+      progress: -Math.random() * 0.3,
+      speed:    Math.random() * 0.0018 + 0.0006,
+      length:   Math.random() * 0.35 + 0.12,
+      alpha:    Math.random() * 0.45 + 0.12,
+      width:    Math.random() < 0.2 ? 2 : 1,
+      hue:      Math.random() < 0.6 ? 270 : (Math.random() < 0.5 ? 200 : 180),
+    };
+  }
+
+  // --- GRID ---
+  const GRID = 65;
+  function drawGrid() {
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += GRID) {
+      const bright = x % (GRID * 4) === 0;
+      ctx.strokeStyle = bright ? 'rgba(150,0,220,0.09)' : 'rgba(120,0,180,0.05)';
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += GRID) {
+      const bright = y % (GRID * 4) === 0;
+      ctx.strokeStyle = bright ? 'rgba(150,0,220,0.09)' : 'rgba(120,0,180,0.05)';
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+  }
+
+  // --- GLOW ORBS ---
+  const orbs = [
+    { x: 0.12, y: 0.20, r: 0.28, h: 270 },
+    { x: 0.88, y: 0.72, r: 0.24, h: 255 },
+    { x: 0.55, y: 0.92, r: 0.20, h: 220 },
+    { x: 0.82, y: 0.12, r: 0.18, h: 285 },
+    { x: 0.30, y: 0.60, r: 0.15, h: 300 },
+  ];
+  let orbT = 0;
+
+  function drawOrbs() {
+    orbs.forEach((o, i) => {
+      const pulse = Math.sin(orbT * 0.6 + i * 1.4) * 0.25 + 0.75;
+      const rx = o.x * canvas.width;
+      const ry = o.y * canvas.height;
+      const rr = o.r * Math.min(canvas.width, canvas.height) * pulse;
+      const grad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rr);
+      grad.addColorStop(0,   `hsla(${o.h},100%,65%,0.12)`);
+      grad.addColorStop(0.3, `hsla(${o.h},100%,50%,0.07)`);
+      grad.addColorStop(0.7, `hsla(${o.h},100%,40%,0.03)`);
+      grad.addColorStop(1,   'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(rx, ry, rr, rr * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // --- CORNER NEON ARCS ---
+  let arcT = 0;
+  function drawCornerArcs() {
+    const corners = [
+      { x: 0,             y: 0,              a1: 0,        a2: Math.PI/2 },
+      { x: canvas.width,  y: 0,              a1: Math.PI/2, a2: Math.PI  },
+      { x: 0,             y: canvas.height,  a1: -Math.PI/2, a2: 0       },
+      { x: canvas.width,  y: canvas.height,  a1: Math.PI,   a2: Math.PI*1.5 },
+    ];
+    const pulse = Math.sin(arcT * 0.5) * 0.4 + 0.6;
+    corners.forEach((c, i) => {
+      const r = 120 + Math.sin(arcT * 0.3 + i) * 20;
+      const grad = ctx.createRadialGradient(c.x, c.y, r * 0.5, c.x, c.y, r);
+      grad.addColorStop(0,   `hsla(270,100%,65%,${0.18 * pulse})`);
+      grad.addColorStop(0.5, `hsla(260,100%,50%,${0.08 * pulse})`);
+      grad.addColorStop(1,   'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, c.a1, c.a2);
+      ctx.lineTo(c.x, c.y);
+      ctx.fill();
+    });
+    arcT += 0.018;
+  }
+
+  let frameId;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    orbT += 0.010;
+
+    // Grid
+    drawGrid();
+
+    // Corner arcs
+    drawCornerArcs();
+
+    // Orbs
+    drawOrbs();
+
+    // Energy lines
+    lines.forEach((ln, i) => {
+      ln.progress += ln.speed;
+      if (ln.progress > 1 + ln.length) {
+        lines[i] = makeEnergyLine();
+        return;
+      }
+      const w = canvas.width, h = canvas.height;
+      const start = ln.progress - ln.length;
+      const end   = ln.progress;
+      let x1, y1, x2, y2;
+      if (ln.horiz) {
+        y1 = y2 = ln.pos; x1 = start * w; x2 = end * w;
+      } else {
+        x1 = x2 = ln.pos; y1 = start * h; y2 = end * h;
+      }
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0,   'transparent');
+      grad.addColorStop(0.4, `hsla(${ln.hue},100%,70%,${ln.alpha * 0.5})`);
+      grad.addColorStop(0.5, `hsla(${ln.hue},100%,80%,${ln.alpha})`);
+      grad.addColorStop(0.6, `hsla(${ln.hue},100%,70%,${ln.alpha * 0.5})`);
+      grad.addColorStop(1,   'transparent');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = ln.width;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = `hsla(${ln.hue},100%,65%,0.6)`;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+
+    // Particles
+    particles.forEach(p => {
+      p.life += p.speed;
+      if (p.life > 1) p.life = 0;
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+      const alpha = Math.sin(p.life * Math.PI) * (p.big ? 0.7 : 0.55);
+      if (p.big) {
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3);
+        grad.addColorStop(0, `hsla(${p.hue},100%,80%,${alpha})`);
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue},100%,75%,${alpha})`;
+      ctx.fill();
+    });
+
+    frameId = requestAnimationFrame(draw);
+  }
+
+  draw();
+
+  // Pause when tab hidden (battery friendly)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(frameId);
+    else draw();
+  });
+})();
+</script>
+
+
+<!-- MOVE TO LIBRARY MODAL -->
+<div class="modal-overlay" id="moveModal" onclick="if(event.target===this)closeMoveModal()">
+  <div class="modal" style="max-width:380px;gap:1.2rem;">
+    <div class="modal-title" style="color:var(--success);display:flex;align-items:center;gap:0.5rem;">
+      🛒 ΑΓΟΡΑ & ΜΕΤΑΦΟΡΑ ΣΤΗ LIBRARY
+    </div>
+    <div id="moveGameName" style="font-size:0.95rem;color:var(--muted);"></div>
+    <div style="font-size:0.8rem;color:var(--muted);">Κονσόλα: <span id="moveConsoleVal" style="color:var(--accent);font-weight:700;"></span></div>
+    <div style="display:flex;flex-direction:column;gap:0.4rem;">
+      <label style="font-size:0.72rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;">Έκδοση</label>
+      <select id="moveFormatSelect" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.9rem;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:0.95rem;outline:none;">
+        <option value="Retail">Retail</option>
+        <option value="Digital">Digital</option>
+        <option value="Both">Both</option>
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.4rem;">
+      <label style="font-size:0.72rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;">Τιμή αγοράς (€) — προαιρετικό</label>
+      <input type="number" id="movePriceInput" placeholder="π.χ. 29.99" step="0.01" min="0" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.9rem;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:0.95rem;outline:none;-webkit-appearance:none;">
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:0.4rem;">
+      <button class="btn-close" onclick="closeMoveModal()" style="align-self:auto;">ΑΚΥΡΟ</button>
+      <button onclick="doMoveToLibrary()" style="background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.5);border-radius:8px;padding:0.5rem 1.5rem;color:var(--success);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;backdrop-filter:blur(10px);transition:all 0.2s;" onmouseover="this.style.background='rgba(0,230,118,0.28)'" onmouseout="this.style.background='rgba(0,230,118,0.15)'">✅ ΜΕΤΑΦΟΡΑ</button>
+    </div>
+  </div>
+</div>
+
+</body>
